@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasks — Audio input</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">2-audio-input</a> / tasks.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <b>tasks</b> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-audio-input
+feature: 2-audio-input
+stage: tasks
+status: T1-T8 done, T9 pending
+created: 2026-09-10</h2>
+<h1>Tasks — Audio input</h1>
+<p>Ordered. Each task ends in a commit referencing <code>[rb-audio-input]</code>, with
+<code>npm test</code> and <code>npm run lint</code> green. Pure code first, browser code second, UI
+last, so every step is testable as it lands.</p>
+<h2>T1 — Types and error messages</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/audio/types.ts"><code>src/audio/types.ts</code></a>: <code>AudioClip</code>, <code>InputErrorCode</code>, <code>InputError</code> class
+with the five messages from design §2.6.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(audio): AudioClip type and InputError [rb-audio-input]</code></li>
+</ul>
+<h2>T2 — Pure resampling</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/audio/resample.ts"><code>src/audio/resample.ts</code></a>: <code>toMono</code>, <code>lowpassFir</code> (windowed sinc, 63 taps,
+Blackman, cutoff 7.2 kHz relative to source rate), <code>resampleTo16k</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/resample.test.ts"><code>test/resample.test.ts</code></a> per design §3: passthrough, 48 kHz stereo
+440 Hz, 44.1 kHz length, 6 kHz survives, 7.9 kHz attenuated.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(audio): mono mix and 16 kHz resampler with tests [rb-audio-input]</code></li>
+</ul>
+<h2>T3 — Pure decode</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/audio/decode.ts"><code>src/audio/decode.ts</code></a>: <code>decodeToClip(channels, sampleRate, source)</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/decode.test.ts"><code>test/decode.test.ts</code></a>: every fixture round-trips with documented
+duration and identical samples at 16 kHz.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(audio): decodeToClip [rb-audio-input]</code></li>
+</ul>
+<h2>T4 — File loading (browser)</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/audio/load.ts"><code>src/audio/load.ts</code></a>: <code>loadFile(file)</code> with the 50 MB gate, Web Audio
+decode, <code>AudioContext</code> closed after use, errors mapped to <code>InputError</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(audio): loadFile via Web Audio [rb-audio-input]</code></li>
+</ul>
+<h2>T5 — Recording (browser)</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/audio/record.ts"><code>src/audio/record.ts</code></a>: <code>record({maxS, onTick, onDone, onError})</code> per
+design §2.4: constraints, MediaRecorder, 100 ms ticks, wall-clock hard
+stop, idempotent <code>stop()</code>, track cleanup, decode via the same path,
+safety trim.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(audio): microphone recording with 10 s hard stop [rb-audio-input]</code></li>
+</ul>
+<h2>T6 — Playback (browser)</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/audio/player.ts"><code>src/audio/player.ts</code></a>: <code>createPlayer(clip)</code> with <code>play</code>, <code>stop</code>,
+<code>position</code>, <code>onEnded</code>, <code>dispose</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(audio): clip player [rb-audio-input]</code></li>
+</ul>
+<h2>T7 — State hook</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/state/useAudioInput.ts"><code>src/state/useAudioInput.ts</code></a>: the state machine from design §2.6, with
+<code>upload</code>, <code>startRecording</code>, <code>stopRecording</code>, <code>dismissError</code>. Replaces
+the clip on each new input; disposes the previous player.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(state): useAudioInput [rb-audio-input]</code></li>
+</ul>
+<h2>T8 — Screen</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/UploadButton.tsx"><code>src/ui/UploadButton.tsx</code></a> (hidden file input, <code>accept=&quot;audio/*&quot;</code>),
+<code>RecordButton.tsx</code> (record/stop with &quot;7.3 / 10 s&quot;), <code>Player.tsx</code>
+(play/stop + &quot;0:02 / 0:06&quot;), <code>StatusLine.tsx</code>, <code>InputScreen.tsx</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/App.tsx"><code>src/App.tsx</code></a> renders <code>InputScreen</code>. <code>index.css</code>: portrait layout,
+48 px targets, error text style.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(ui): input screen with upload, record and playback [rb-audio-input]</code></li>
+</ul>
+<h2>T9 — Manual verification on the phone</h2>
+<ul>
+<li><input disabled="" type="checkbox"> <code>./scripts/dev.sh</code>, open <code>http://localhost:5173</code> on Android Chrome.</li>
+<li><input disabled="" type="checkbox"> Walk PRD acceptance criteria 1-5 (record hard stop, seven AAC originals,
+WAV/MP3/OGG, 60 MB refusal, playback, mic denial). Note per-format
+decode results, especially M4A and OGG, for the review&#39;s open question.</li>
+<li><input disabled="" type="checkbox"> Update <code>README.md</code> status to &quot;implemented, review pending&quot;.</li>
+<li><input disabled="" type="checkbox"> No commit unless something was fixed; fixes are <code>fix(audio|ui): ... [rb-audio-input]</code>.</li>
+</ul>
+<h2>Handoff to review</h2>
+<p>The review stage writes <code>review.md</code> with a numbered checklist from the PRD
+acceptance criteria and the T9 findings. No fixes in that stage.</p>
+<h2>Test files to have on the phone before T9</h2>
+<ul>
+<li>The seven AAC originals from <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/audio/"><code>audio/</code></a>.</li>
+<li>One WAV (<a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/fixtures/after-cold.wav"><code>test/fixtures/after-cold.wav</code></a>), one MP3 and one OGG: generate with
+<code>ffmpeg -i audio/&quot;after cold.aac&quot; after-cold.mp3</code> and <code>... after-cold.ogg</code>
+into the scratch dir, not the repo.</li>
+<li>A &gt;50 MB dummy: <code>head -c 60000000 /dev/urandom &gt; big.wav</code> (must be refused
+by size before decode).</li>
+</ul>
+
+</div></body></html>

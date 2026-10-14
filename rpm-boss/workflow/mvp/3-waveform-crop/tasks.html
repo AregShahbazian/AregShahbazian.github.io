@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasks — Waveform and crop</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">3-waveform-crop</a> / tasks.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <b>tasks</b> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-waveform-crop
+feature: 3-waveform-crop
+branch: feat/3-waveform-crop
+stage: tasks
+status: T1-T8 done; T9 (phone) open, carried into review.md section B
+created: 2026-09-10</h2>
+<h1>Tasks — Waveform and crop</h1>
+<p>All on <code>feat/3-waveform-crop</code>. Pure code with tests first, phase-2 touch
+points second, components last. Each task ends in a commit referencing
+<code>[rb-waveform-crop]</code> with <code>npm test</code> and <code>npm run lint</code> green.</p>
+<p>The branch carries more than these eight commits: two refactors landed during
+implementation (peaks drawn in the effect, range helpers extracted), a hit-test
+fix, a README line, and three commits from the code-review round. Scope a
+review from <code>git log main..feat/3-waveform-crop</code>, not from this list.</p>
+<h2>T1 — Selection logic</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/waveform/selection.ts"><code>src/waveform/selection.ts</code></a>: <code>Selection</code>, constants, <code>defaultSelection</code>,
+<code>setStart</code>, <code>setEnd</code>, <code>moveBy</code> (design §2.1).</li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/selection.test.ts"><code>test/selection.test.ts</code></a> (design §4).</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(waveform): selection model with 1-10 s window [rb-waveform-crop]</code></li>
+</ul>
+<h2>T2 — Peaks</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/waveform/peaks.ts"><code>src/waveform/peaks.ts</code></a>: <code>computePeaks</code> (design §2.2).</li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/peaks.test.ts"><code>test/peaks.test.ts</code></a>.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(waveform): min/max peaks per column [rb-waveform-crop]</code></li>
+</ul>
+<h2>T3 — Slice and minimum length</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/waveform/slice.ts"><code>src/waveform/slice.ts</code></a>: <code>sliceClip</code>, <code>assertMinLength</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/audio/types.ts"><code>src/audio/types.ts</code></a>: <code>&#39;too-short&#39;</code> code and message.</li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/audio/load.ts"><code>src/audio/load.ts</code></a>: <code>assertMinLength</code> after decode; <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/audio/record.ts"><code>src/audio/record.ts</code></a>:
+pass any <code>InputError</code> through unchanged.</li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/slice.test.ts"><code>test/slice.test.ts</code></a>.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(waveform): sliceClip; reject clips under 1 s at load [rb-waveform-crop]</code></li>
+</ul>
+<h2>T4 — Windowed playback</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/audio/player.ts"><code>src/audio/player.ts</code></a>: <code>play(startS, endS)</code>, absolute <code>position()</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(audio): play a window of the clip [rb-waveform-crop]</code></li>
+</ul>
+<h2>T5 — State</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/state/useAudioInput.ts"><code>src/state/useAudioInput.ts</code></a>: <code>selection</code>, <code>setSelection</code>, <code>windowClip</code>,
+reset on new clip, windowed <code>togglePlay</code>, stop on selection change.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(state): selection and window clip in useAudioInput [rb-waveform-crop]</code></li>
+</ul>
+<h2>T6 — WaveformCanvas</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/WaveformCanvas.tsx"><code>src/ui/WaveformCanvas.tsx</code></a>: layers, sizing, pointer handling (design §3.1).</li>
+<li><input checked="" disabled="" type="checkbox"> CSS: <code>.wave</code> wrapper, <code>touch-action: none</code>, heights.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(ui): waveform canvas with draggable crop window [rb-waveform-crop]</code></li>
+</ul>
+<h2>T7 — WaveformBlock and screen</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/WaveformBlock.tsx"><code>src/ui/WaveformBlock.tsx</code></a>: single vs overview+detail by <code>LONG_CLIP_S</code>,
+<code>detailRange</code>, readout.</li>
+<li><input checked="" disabled="" type="checkbox"> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/InputScreen.tsx"><code>src/ui/InputScreen.tsx</code></a>: mount the block between StatusLine and Player.</li>
+<li><input checked="" disabled="" type="checkbox"> Commit: <code>feat(ui): waveform block with overview for long clips [rb-waveform-crop]</code></li>
+</ul>
+<h2>T8 — Desktop smoke (laptop Chrome, uploads, agent-verified)</h2>
+<p>Run by Claude through Playwright with synthetic pointer events. Everything
+here is mouse/upload only; nothing below is evidence about touch.</p>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> Seven fixtures: waveform + default window (AC 1).</li>
+<li><input checked="" disabled="" type="checkbox"> Edge and body drags, limits (AC 2, 3).</li>
+<li><input checked="" disabled="" type="checkbox"> A 2-minute file: overview + detail, window at 100-110 s (AC 4). Make
+one with <code>ffmpeg -stream_loop 7 -i &quot;audio/before cold clutch.aac&quot; -c copy long.m4a</code>
+into the scratch dir.</li>
+<li><input checked="" disabled="" type="checkbox"> Windowed playback and indicator (AC 5); reset on new clip (AC 6);
+too-short rejection with a 0.5 s file (AC 6b).</li>
+<li><input checked="" disabled="" type="checkbox"> Update <code>README.md</code> status.</li>
+</ul>
+<h2>T9 — Phone pass (maintainer, Android Chrome) — open</h2>
+<p>Carried into <code>review.md</code> section B; the feature is not done until these pass.</p>
+<ul>
+<li><input disabled="" type="checkbox"> 48 px hit areas under a real finger: grab each edge and the body of a
+narrow window without missing.</li>
+<li><input disabled="" type="checkbox"> No gesture conflict: dragging on the canvas must not scroll the page.</li>
+<li><input disabled="" type="checkbox"> Drag stays smooth on the phone, including the 2-minute file.</li>
+<li><input disabled="" type="checkbox"> AC 6b, recording half: stop a recording at ~0.5 s and see the too-short
+message.</li>
+<li><input disabled="" type="checkbox"> Windowed playback and the position line during playback.</li>
+</ul>
+<h2>Handoff</h2>
+<p>Then: code review (maintainer triggers), fixes on the branch, <code>review.md</code>, merge.</p>
+
+</div></body></html>

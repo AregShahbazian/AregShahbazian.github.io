@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review — Realtime tachometer</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">features</a> / <a href="index.html">realtime-tacho</a> / review.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <b>review</b></nav>
+<hr>
+<h2>id: rb-live-tacho
+feature: realtime-tacho
+branch: feat/realtime-tacho
+stage: review
+status: closed — B1-B18 confirmed by the maintainer
+closed: 2026-09-15
+created: 2026-09-14
+commits: 08511e4..157559f (10 on the branch, unpushed)</h2>
+<h1>Review — Realtime tachometer</h1>
+<p>Review only: findings and a checklist, no fixes. Approved fixes land on the
+branch as <code>fix(...): ... [rb-live-tacho]</code>.</p>
+<p>The boxes in section B are the maintainer&#39;s. Items Claude drove itself are
+marked <strong>(agent-verified)</strong> with what it saw; that is evidence, not a tick.</p>
+<h2>A. Automated</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm test</code></td>
+<td>377 passed, 28 files (this feature adds 34 in 5 files)</td>
+</tr>
+<tr>
+<td><code>npm run lint</code></td>
+<td>clean</td>
+</tr>
+<tr>
+<td><code>tsc -b</code> + <code>npm run build</code></td>
+<td>clean, 303.0 kB JS / 99.2 kB gzipped</td>
+</tr>
+<tr>
+<td>Bundle growth</td>
+<td>+14.3 kB raw, <strong>+4.5 kB gzipped</strong>, against the 10 kB budget in PRD criterion 12</td>
+</tr>
+<tr>
+<td><code>scripts/install.sh --samples</code></td>
+<td>signed release APK, installed and exercised on the AGM G3</td>
+</tr>
+</tbody></table>
+<h2>B. Manual checklist</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>B1</strong> (agent-verified) At rest, the dial is drawn with the needle at 0, the reading is <code>---</code>, and the strip at the foot holds the way in. Portrait and landscape, dark and light.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B2</strong> (agent-verified) Mock drives the dial: needle at ~1.6, reading 1584-1632 against sample 6&#39;s reference of 1603, scope drawing continuously across the loop seam. Nothing audible.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B3</strong> (agent-verified) While live runs, Record, Open and Sample are disabled and Settings is not.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B4</strong> (agent-verified) Portrait, on the phone at 360 CSS px: the stop button sits to the right of the settings icon, 96 px against an icon button&#39;s 48. It wrapped to its own line at the original 12 px row gap; see D2.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B5</strong> (agent-verified) Landscape: the stop button spans the full width of the source row, on the line below it.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B6</strong> (agent-verified) Stop returns the screen to rest — needle 0, <code>---</code>, the way in back, source buttons enabled — five times running.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B7</strong> (agent-verified) Losing the foreground stops live mode: the reading goes to <code>---</code>, the stop button goes, the source row comes back.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B8</strong> (agent-verified) A refused microphone shows the existing error line (&quot;Microphone blocked. Allow it, then try again.&quot;) above the status, and the stage is hidden while it stands. Dismiss brings the stage back.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B9</strong> (agent-verified) The settings dialog has a border; below the theme section a divider, then &quot;Tachometer settings&quot;, closed on open, holding the needle-movement row. It held two rows until D6 removed one.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B10</strong> (agent-verified) The choice persists: <code>rpm-boss.live.motion</code> in <code>localStorage</code>, read back after a reload.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B11</strong> The needle visibly steps once per reading with motion set to <em>step</em>, and glides with <em>smooth</em>. Claude confirmed the two code paths and saw smooth motion; how it <em>feels</em> was the maintainer&#39;s call.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B12</strong> Cutting the sound drops the needle to 0 and the line to <code>---</code>. This was two behaviours behind a setting until it was tested: holding the last figure read as the dial lying about a stopped engine, and the option was removed rather than defaulted away. See D6.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B13</strong> (agent-verified) Recording still works end to end after the plugin change: 4.9 s captured on the phone, decoded, waveform drawn, crop, Play and Calculate all present.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B14</strong> A real engine, at idle and blipped. The needle follows, and the figure agrees with what the batch path says about the same engine.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B15</strong> A bike that idles low — under 960 rpm — now reads instead of failing. This is what moving <code>MIN_RATE</code> was for and no fixture covers it.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B16</strong> Two minutes of live mode on the phone without the app growing warm enough to throttle. Claude ran three minutes with no stall; heat was the maintainer&#39;s to judge.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B17</strong> The screen stays awake for the length of a live session and goes back to the device&#39;s own timeout after Stop. See D7.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B18</strong> After the merge, the same passes on the deployed site.</li>
+</ul>
+<h2>C. Findings</h2>
+<p>Raised by Claude against its own diff at the code-review stage, with the
+maintainer&#39;s disposition.</p>
+<ul>
+<li><strong>C1</strong> ✅ fixed — <code>client.current?.run(...)</code> could have frozen the loop for good: an undefined client short-circuits the whole chain, <code>then</code> included, so the in-flight flag would never clear and every later tick would return early. Live mode would go on drawing a dial it had stopped measuring. Unreachable today, silent if it ever were not.</li>
+<li><strong>C2</strong> ✅ fixed — the in-flight flag now clears in <code>finally</code>, so a rejection unblocks the loop as well. <code>AnalysisClient.run</code> is documented to settle every request; this loop should not be the thing that finds out otherwise.</li>
+<li><strong>C3</strong> ✅ fixed — the pointer cursor sat in the colour branch of <code>Button</code>, which left the two red buttons, stop recording and stop listening, as the only things on screen that did not say they could be pressed.</li>
+<li><strong>C4</strong> ⏸ left alone by decision — <code>Tacho</code> redraws the whole face every frame while the needle eases, where <code>WaveformCanvas</code> rasterises precisely to avoid that. The phone held 62 fps with no analysis skipped, so the offscreen face would buy nothing visible and costs a second canvas and a cache-invalidation rule. The move to make <em>if</em> the dial ever gets heavier.</li>
+<li><strong>C5</strong> ⏸ deferred by decision — <code>useLive</code> has no test of its own; only <code>displayRpm</code> is covered. Testing the hook needs a DOM, and vitest runs under <code>environment: &#39;node&#39;</code> here, so it means a <code>jsdom</code> devDependency and an env switch for one file. Larger than the hazards it would catch, both of which C1 and C2 closed structurally. Recorded as a gap in D4.</li>
+<li><strong>C6</strong> ⏸ declined by the maintainer — the sub-floor segment of the dial (0-600 rpm) is 5% of the sweep and barely reads as &quot;cannot measure here&quot;. The figure under the dial says it plainly enough.</li>
+<li><strong>C7</strong> ⏸ declined by the maintainer — <code>mock.ts</code> does not check its slice against the clip&#39;s length. Sample 6 is 15.9 s so the 3-13 s window fits, but a shorter sample would give an empty slice, <code>readLooped</code> would divide by zero and the whole path would see NaN as silence. It is a developer&#39;s tool and is not being polished.</li>
+</ul>
+<h2>D. What changed outside the plan</h2>
+<ul>
+<li><strong>D1</strong> The dial is sized by <code>faceIn</code> rather than <code>min(w, h) / 2</code> as design §6 and PRD requirement 23 said. A 240-degree sweep is two radii wide and 1.87 tall, so fitting the box rather than a circle inside it makes the dial noticeably bigger in landscape, which is the shape a phone on a tank rail is in.</li>
+<li><strong>D2</strong> The source row&#39;s gap went from 12 px to 8 px, in both layouts. At 12 px, four icon buttons and the double-width stop came to 336 px in a row 328 px wide on a 360 px phone, and the stop dropped to a line of its own in portrait — where PRD requirement 5 puts it beside the settings icon. Caught on the device, not in the browser; see D5.</li>
+<li><strong>D3</strong> A race was found on the phone during the measurement and fixed inside the implementation stage rather than left for review. An analysis occupies about 60 ms of every 200, so roughly a third of stops landed while one was in the worker; its result then arrived at a torn-down hook and set the screen back to <code>listening</code> — stop button on screen, a reading on the dial, but the timer cleared, the ring gone and the scope blank, permanently. A generation counter makes a late result recognise that nobody is waiting for it.</li>
+<li><strong>D4</strong> No test covers <code>useLive</code>. See C5.</li>
+<li><strong>D6</strong> The <em>hold last value</em> fallback was removed after B12, along with its storage key, its picker row and its three strings in seventeen languages. Falling to zero is now the only behaviour, not the default of two. A dial that goes on showing 1600 after the engine has stopped is a worse lie than one that admits it lost the sound, and that is not a judgement worth handing to a rider as a setting.</li>
+<li><strong>D7</strong> Live mode holds a screen wake lock. It is the one screen nobody touches — the phone is propped against the engine and the rider is turning a screw — so the display timeout would otherwise take it mid-measurement. <code>navigator.wakeLock</code>, which needs no permission and no native code and is in the Android WebView; released on Stop, including when the stop beats the request.</li>
+<li><strong>D5</strong> The Playwright browser reports <code>innerWidth</code> 480 at a 360-wide window, at <code>devicePixelRatio</code> 0.75, so laptop widths in this pass are not the CSS widths they look like. The narrow-screen checks in B4 were done on the phone for that reason, and D2 is the defect that slipped through because of it.</li>
+</ul>
+<h2>E. Measured performance</h2>
+<p>PRD criterion 17. Two minutes against the mock on the laptop, three on the
+phone in a release APK.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>laptop</th>
+<th>phone (AGM G3)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>analyses completed</td>
+<td>607</td>
+<td>850</td>
+</tr>
+<tr>
+<td>typical</td>
+<td>42 ms</td>
+<td>62 ms</td>
+</tr>
+<tr>
+<td>worst</td>
+<td>63 ms</td>
+<td>109 ms</td>
+</tr>
+<tr>
+<td><strong>ticks skipped</strong></td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>audio received per second</td>
+<td>1.00</td>
+<td>1.00</td>
+</tr>
+<tr>
+<td>scope frame rate</td>
+<td>120</td>
+<td>62</td>
+</tr>
+</tbody></table>
+<p>Against the 200 ms between readings that is a 21% duty cycle on the laptop and
+31% on the phone, with nothing dropped at either end.</p>
+<p><strong>The decision this was for:</strong> there is headroom, and it has not been spent.
+Design §13b lists what to spend it on — a longer window, a wider smoothing
+median, the octave continuity rule — in that order. None of it is done here,
+because none of it is needed to ship what the PRD asked for, and each changes
+what the app answers.</p>
+<h2>F. Still open</h2>
+<ul>
+<li>The octave question the PRD raised and this feature did not answer: with
+600 rpm reachable, a 1,200 rpm idle has a half-octave inside the valid range
+where it used to fall outside it. The median of five discards a single bad
+reading, which is a mitigation and not an answer. B14 and B15 passed, so it
+did not show on the engines tested — which is evidence and not a proof, and
+the continuity rule in design §5 stays on the shelf rather than in the bin.</li>
+<li>PRD criterion 6, a tone swept from 600 to 12,000 rpm reading across the whole
+dial, is unverified: only ~1,600 rpm was ever driven through it.</li>
+<li>PRD criterion 5&#39;s &quot;verified by the platform&#39;s own recording indicator&quot; is
+unverified. The app&#39;s own state was checked instead.</li>
+</ul>
+
+</div></body></html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD — Waveform and crop</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">3-waveform-crop</a> / prd.md &nbsp;|&nbsp; stages: <b>prd</b> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-waveform-crop
+feature: 3-waveform-crop
+branch: feat/3-waveform-crop
+status: draft
+created: 2026-09-10
+depends_on: [2-audio-input]</h2>
+<h1>PRD — Waveform and crop</h1>
+<h2>Goal</h2>
+<p>Show the loaded clip as a waveform and let the user choose the section that
+goes into the analysis. Every clip, short or long, passes through this step.</p>
+<h2>Why</h2>
+<p>Recordings contain revs, silence, wind, a thumb on the mic. The analysis is
+only as good as the section it gets, and the user can see the clean part
+better than any heuristic can. Long uploads are handled here too: the app
+never rejects a long file, it asks for a window. The 10 s cap keeps the
+analysis bounded and the UI simple (decided in
+<a href="../../discussions/2026-09-10-audio-input-scope.html"><code>discussions/2026-09-10-audio-input-scope.md</code></a>).</p>
+<h2>User stories</h2>
+<ol>
+<li>As a user, after loading a clip I see its waveform and a highlighted window
+already placed on it, so one tap on Calculate would work without any
+cropping.</li>
+<li>As a user, I drag the window&#39;s edges or the window itself to the cleanest
+part, and the app never lets the window grow past 10 s.</li>
+<li>As a user with a 2-minute upload, I see the whole file at a glance and can
+still place a 10 s window precisely.</li>
+<li>As a user, I press Play and hear only the window, so I can confirm my choice
+by ear.</li>
+</ol>
+<h2>Scope</h2>
+<h3>In</h3>
+<ul>
+<li><strong>Waveform</strong> of the full clip, drawn on a canvas from the 16 kHz mono
+samples (min/max per pixel column). Redrawn on resize.</li>
+<li><strong>Crop window</strong>, always visible:<ul>
+<li>Default: from 0 s, length <code>min(10 s, clip duration)</code>.</li>
+<li>Max length <strong>10 s</strong>, min length <strong>1 s</strong>.</li>
+<li>Draggable by the left edge, the right edge, and the body (moves without
+resizing). Clamped to the clip.</li>
+<li>Start and end shown as <code>m:ss.s</code>, length shown as <code>x.x s</code>.</li>
+</ul>
+</li>
+<li><strong>Long clips</strong> (longer than ~30 s): an overview strip of the whole clip with
+the window marked, plus a detail waveform of the region around the window,
+so the handles stay usable. Below that threshold one waveform is enough.</li>
+<li><strong>Playback</strong> from phase 2 now plays the window only, and the position
+indicator is drawn on the waveform.</li>
+<li><strong>Minimum clip length:</strong> clips shorter than <strong>1 s</strong> are rejected at load,
+both uploads and recordings, with the message &quot;That clip is too short.
+Record or pick at least 1 second.&quot; This lands in the phase-2 input module
+(<code>loadFile</code>, <code>record</code>) as a new <code>InputError</code> code, so the crop step always
+has a valid window to offer.</li>
+<li><strong>Output:</strong> the selection <code>{ startS, endS }</code> and a derived <code>AudioClip</code> of the
+window (via <code>trimClip</code>-style slicing), exposed from the state hook for
+<code>4-analysis</code>. Selection resets to the default when a new clip is loaded.</li>
+<li><strong>Touch-first:</strong> handles have a 48 px hit area even when the drawn handle is
+thinner; body drag works with a single finger; no gesture conflicts with
+page scroll (the canvas area does not scroll the page while dragging).</li>
+<li><strong>Performance:</strong> dragging is smooth on a mid-range Android phone; waveform
+peaks are precomputed once per clip, not per frame.</li>
+</ul>
+<h3>Out</h3>
+<ul>
+<li>Analysis, combustion markers, the result view (4, 5).</li>
+<li>Zoom, pinch, scroll-wheel navigation. The overview+detail pair covers long
+clips; free zoom is a backlog item.</li>
+<li>Trimming the stored clip; the clip stays whole, only the selection changes.</li>
+<li>Persisting the selection.</li>
+<li>Desktop mouse polish beyond &quot;works&quot;.</li>
+</ul>
+<h2>Acceptance criteria</h2>
+<ol>
+<li>Each of the seven fixtures shows a waveform whose length matches its
+duration; the default window is 0-6.4 s for <code>after cold</code> and 0-10 s for
+<code>before cold clutch</code> (15.9 s).</li>
+<li>Dragging the right edge past 10 s from the left edge is refused (window
+stays 10 s); dragging edges together below 1 s is refused.</li>
+<li>Dragging the body keeps the length exact (to the sample) and clamps at both
+ends of the clip.</li>
+<li>A synthetic 120 s clip (a fixture looped in a test helper, or a 2-minute
+upload) shows the overview strip and the detail view, and the window can be
+placed at 100-110 s.</li>
+<li>Play plays only the window, the indicator moves inside it, playback stops at
+the window end.</li>
+<li>Loading a new clip resets the window to the default.
+6b. A 0.5 s upload and a recording stopped at 0.5 s are both refused with the
+ too-short message; a 1.0 s clip is accepted.</li>
+<li>Unit tests: peak computation (<code>n</code> samples → <code>w</code> columns of min/max), the
+selection clamping logic (max 10 s, min 1 s, clip bounds, body move), and
+the window-to-clip slicing, all as pure functions.</li>
+<li><code>npm test</code>, <code>npm run lint</code>, <code>npm run build</code> pass.</li>
+</ol>
+<h2>Non-goals and constraints</h2>
+<ul>
+<li>No chart or gesture library. Canvas 2D and pointer events only.</li>
+<li>The waveform and selection logic live outside React (<a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/waveform/"><code>src/waveform/</code></a>),
+pure and Node-testable; React only wires pointer events and draws.</li>
+<li>No change to the <code>AudioClip</code> contract from phase 2.</li>
+</ul>
+<h2>Open questions</h2>
+<ul>
+<li>Exact long-clip threshold for showing the overview strip (30 s is a guess;
+decide in design from the fixture widths at 360 px).</li>
+<li>Whether the min window of 1 s is enough for the autocorrelation in phase 4;
+phase 4 may raise it.</li>
+</ul>
+
+</div></body></html>

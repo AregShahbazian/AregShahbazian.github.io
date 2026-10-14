@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design — Analysis</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">4-analysis</a> / design.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <b>design</b> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-analysis
+feature: 4-analysis
+branch: feat/4-analysis
+status: draft
+created: 2026-09-10</h2>
+<h1>Design — Analysis</h1>
+<p>How the scipy reference in <a href="../../mvp.html"><code>mvp.md</code></a> becomes TypeScript, and what was measured
+before deciding anything.</p>
+<h2>0. Measurements taken first</h2>
+<p>The reference method was re-implemented in Python against the seven fixtures
+before any TypeScript was written, to have a trusted baseline to port from and
+to answer the PRD&#39;s open questions with numbers instead of opinion. It
+reproduces <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/combustion-counts.md"><code>audio/combustion-counts.md</code></a> to the digit shown there, so the
+parameters below are the reference&#39;s parameters, not a guess at them.</p>
+<h3>0.1 Minimum window: 1 s → 2 s</h3>
+<p>The PRD asked for the shortest window that still passes. Every fixture was
+truncated to each length below, at every start offset in 0.5 s steps, and the
+worst error over all positions recorded.</p>
+<table>
+<thead>
+<tr>
+<th>window</th>
+<th>worst error</th>
+<th>fixtures outside tolerance</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1.0 s</td>
+<td>81 rpm</td>
+<td>1 of 7</td>
+</tr>
+<tr>
+<td>1.5 s</td>
+<td>81 rpm</td>
+<td>1 of 7</td>
+</tr>
+<tr>
+<td>2.0 s</td>
+<td>56 rpm</td>
+<td>0 of 7</td>
+</tr>
+<tr>
+<td>3.0 s</td>
+<td>39 rpm</td>
+<td>0 of 7</td>
+</tr>
+<tr>
+<td>5.0 s</td>
+<td>39 rpm</td>
+<td>0 of 7</td>
+</tr>
+</tbody></table>
+<p><code>standard-recording-2.wav</code> is the one that fails, at 81 rpm against a 73 rpm
+tolerance. 1.0 and 1.5 s score identically because the analysis window is 1 s
+and both admit exactly one of them.</p>
+<p><strong>Decision: <code>MIN_CLIP_S</code> rises from 1 to 2.</strong> Accuracy is flat from 3 s
+upward, so nothing is gained by demanding more. Per the PRD this constant stays
+coupled to the load gate, so clips between 1 s and 2 s now fail at load rather
+than at Calculate.</p>
+<p>Consequences, all carried into <code>tasks.md</code>:</p>
+<ul>
+<li>The too-short message hardcodes &quot;at least 1 second&quot; and must be derived from
+the constant instead.</li>
+<li>Phase 3 tested the minimum crop window at 1.0 s (<strong>B3</strong> in its review).
+That review is closed; the change is recorded in this phase&#39;s review instead.</li>
+</ul>
+<h3>0.2 A confidence threshold is worth having</h3>
+<p>The PRD asked whether &quot;no peak in the lag range&quot; suffices. It does not: the
+autocorrelation always has a maximum somewhere. What separates an engine from
+noise is how sharply that maximum stands out. Two candidate measures were run
+over the fixtures and over synthetic non-engine audio.</p>
+<table>
+<thead>
+<tr>
+<th>input</th>
+<th>peak height</th>
+<th>peak minus preceding trough</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>seven fixtures, worst window</td>
+<td>0.51</td>
+<td>0.55</td>
+</tr>
+<tr>
+<td>seven fixtures, median window</td>
+<td>0.70-0.86</td>
+<td>0.92-1.31</td>
+</tr>
+<tr>
+<td>white noise</td>
+<td>0.13</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>near-silence</td>
+<td>0.11</td>
+<td>0.28</td>
+</tr>
+<tr>
+<td>tone plus noise</td>
+<td>-</td>
+<td>0.27</td>
+</tr>
+<tr>
+<td>amplitude-modulated tone</td>
+<td>-</td>
+<td>0.00</td>
+</tr>
+</tbody></table>
+<p><strong>Decision: confidence is the median over windows of peak minus preceding
+trough, and the threshold is 0.45.</strong> It sits between the worst fixture window
+at 0.55 and the loudest false positive at 0.32, with room on both sides. The
+peak-height measure was rejected: it separates less cleanly and it scores a
+flat envelope as perfectly periodic.</p>
+<p>Known limitation: a pure synthetic tone scores 1.99 and would be reported as an
+engine. Every realistic non-engine input tested scores below 0.33. Noted, not
+guarded against.</p>
+<h3>0.3 The bandpass can be a cascade</h3>
+<p><code>butter(2, [60, 2000], &#39;band&#39;)</code> is a 4th-order bandpass needing two biquads
+with coefficients from a bandpass transform. Cascading a 2nd-order Butterworth
+highpass at 60 Hz with a 2nd-order lowpass at 2000 Hz gives the same answer to
+<strong>0.06 rpm</strong> across all seven fixtures, because the band spans a factor of 33 in frequency and
+the two skirts never interact.</p>
+<p><strong>Decision: three identical-shaped 2nd-order sections</strong> — highpass 60 Hz,
+lowpass 2000 Hz, lowpass 150 Hz — each from the standard bilinear-transform
+formulas at Q = 1/√2. One small function instead of a pole-mapping routine, and
+each section is checkable against a hand-computed response.</p>
+<h2>1. Module layout</h2>
+<pre><code>src/dsp/
+  wav.ts        exists, unchanged
+  biquad.ts     2nd-order section design + zero-phase apply
+  envelope.ts   bandpass, rectify, smooth
+  autocorr.ts   per-window rate and confidence
+  pulses.ts     peak positions, the cross-check
+  analyse.ts    orchestration, rpm, octave resolution
+  types.ts      AnalysisResult, AnalysisError
+src/analysis/
+  worker.ts     wraps analyse()
+  client.ts     posts a clip, resolves a result
+src/state/useAnalysis.ts
+src/ui/RangeFields.tsx, CalculateButton.tsx, ResultLine.tsx
+</code></pre>
+<p><a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/dsp/"><code>src/dsp/</code></a> imports nothing outside itself. <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/waveform/peaks.ts"><code>src/waveform/peaks.ts</code></a> is the
+drawing helper from phase 3 and is unrelated to <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/dsp/pulses.ts"><code>src/dsp/pulses.ts</code></a>; the names
+are close enough to warrant a comment in both.</p>
+<h2>2. Signal chain</h2>
+<p>All stages run at 16 kHz on <code>Float32Array</code>, in <code>Float64Array</code> internally where
+the filters need the headroom.</p>
+<ol>
+<li><strong>Highpass 60 Hz, lowpass 2000 Hz</strong>, each a 2nd-order Butterworth section.</li>
+<li><strong>Full-wave rectify</strong>, <code>Math.abs</code>.</li>
+<li><strong>Lowpass 150 Hz</strong>, one more section. This is the envelope.</li>
+</ol>
+<p>Each section is applied <strong>zero-phase</strong>: forward, then reversed, then reversed
+back. Without that the envelope shifts in time and the pulse positions that
+phase 5 draws would sit off the combustions. Edges are handled by odd extension
+over <code>3 * (2 * sections + 1)</code> samples, matching what scipy&#39;s <code>sosfiltfilt</code>
+does, so the first and last few milliseconds are not artefacts.</p>
+<h2>3. Rate estimate</h2>
+<p>Per non-overlapping 1 s window:</p>
+<ul>
+<li>Subtract the window mean, autocorrelate, normalise by the zero-lag value.</li>
+<li>Search lags from <code>sr / 100</code> to <code>sr / 8</code>, which is 8 to 100 pulses per second,
+160 to 2000 samples.</li>
+<li>Refine the winning lag by parabolic interpolation over its two neighbours.
+Without this the estimate quantises to whole samples, which at the fast end
+of the range is a 6 % step.</li>
+<li>Confidence for the window is that peak minus the lowest value between lag 1
+and the peak.</li>
+</ul>
+<p>The clip&#39;s rate is the <strong>median</strong> of the window rates, its confidence the
+median of the window confidences. Median rather than mean because a single
+window containing a door slam should not move the answer.</p>
+<p>A tail shorter than 1 s is dropped. At the 2 s minimum that leaves two windows;
+at the 10 s cap, ten.</p>
+<h2>4. Pulse positions</h2>
+<p>Peak picking over the envelope with the reference&#39;s parameters: minimum spacing
+<code>0.6 * sr / rate</code> samples, minimum prominence <code>0.5 * stddev(envelope)</code>. The
+count over the clip duration is the second estimate, method A in
+<code>combustion-counts.md</code>, and the positions are what phase 5 draws.</p>
+<p>Prominence is implemented as scipy defines it: from each peak, walk out both
+ways until the signal rises above the peak again, take the highest minimum on
+either side, and subtract. The two estimates agreeing within 3 % is an
+acceptance criterion, so this is not decoration.</p>
+<h2>5. RPM and the expected range</h2>
+<p><code>rpm = pulsesPerSecond * 60 * REVS_PER_PULSE</code>, with <code>REVS_PER_PULSE = 2</code> for
+the 4-stroke single. Named constant, not a literal, so the deferred preset can
+set it later without touching the DSP.</p>
+<p>When both range fields are filled, the candidates <code>rpm / 2</code>, <code>rpm</code> and
+<code>rpm * 2</code> are tested against the range. If exactly one falls inside it wins; if
+several do, the one nearest the range midpoint wins; if none do, the unmodified
+estimate is returned and the range is ignored. The range never widens or
+narrows the answer, it only chooses among octaves, which is the only error mode
+the method actually has.</p>
+<h2>6. Failure</h2>
+<p><code>analyse()</code> returns a discriminated union rather than throwing, since the
+worker boundary flattens exceptions. Codes: <code>too-short</code> (below the window
+minimum, should be unreachable behind the load gate), <code>no-signal</code> (confidence
+under 0.45). Messages live beside the input messages in the same style, so
+phase 7 extracts them in one sweep.</p>
+<h2>7. Worker and state</h2>
+<p><code>client.ts</code> creates the worker with <code>new Worker(new URL(&#39;./worker.ts&#39;, import.meta.url), { type: &#39;module&#39; })</code>, which Vite bundles without extra
+config. The samples transfer rather than copy: at most 10 s at 16 kHz is
+640 kB, and the clip is sliced fresh from <code>getWindowClip()</code> each time, so
+handing away the buffer costs nothing.</p>
+<p><code>useAnalysis()</code> is a hook of its own rather than more surface on
+<code>useAudioInput</code>. It holds <code>idle | running | done | failed</code>, cancels an
+in-flight run when a new one starts, and resets to idle whenever the selection
+or the clip changes, so a stale number never sits under a window it does not
+belong to.</p>
+<h2>8. UI</h2>
+<p>Below the player: two number inputs for the range, a Calculate button, and one
+line of result text. Deliberately unstyled beyond the existing classes. The
+button is disabled while a run is in flight and while no clip is loaded. The
+range inputs accept empty, and reject a min above a max by simply not applying
+the range.</p>
+<h2>9. Tests</h2>
+<ul>
+<li><code>biquad.test.ts</code> — section coefficients against values computed by scipy, and
+magnitude response at DC, the corner, and the stopband.</li>
+<li><code>envelope.test.ts</code> — a synthetic pulse train in, pulses at the right places
+out; zero-phase verified by checking a symmetric input stays symmetric.</li>
+<li><code>autocorr.test.ts</code> — synthetic periodic signals at known rates, including one
+between two sample lags to exercise the interpolation; confidence high on
+those, low on noise.</li>
+<li><code>pulses.test.ts</code> — prominence and spacing against hand-built inputs.</li>
+<li><code>analyse.test.ts</code> — octave resolution table, failure codes.</li>
+<li><code>analysis.fixtures.test.ts</code> — all seven fixtures inside <code>toleranceRpm</code>, the
+two estimators within 3 %, plus each fixture&#39;s rate against
+<a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/fixtures/reference.json"><code>test/fixtures/reference.json</code></a>, the per-fixture rates exported from the
+Python baseline, at 1 % tolerance. That file is what catches a port that is
+subtly wrong yet still plausible.</li>
+</ul>
+<h2>10. Out</h2>
+<p>No caching of results, no re-analysis on drag, no confidence shown to the user,
+no second opinion when the two estimators disagree. All noted for phase 5 or
+the backlog.</p>
+
+</div></body></html>

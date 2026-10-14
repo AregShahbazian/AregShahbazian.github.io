@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review — A demo build with a simulated engine</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">features</a> / <a href="index.html">demo-mock</a> / review.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <b>review</b></nav>
+<hr>
+<h2>id: rb-demo-mock
+feature: demo-mock
+branch: feat/demo-mock
+stage: review
+created: 2026-09-15</h2>
+<h1>Review — A demo build with a simulated engine</h1>
+<p>Three commits: <code>14af927</code> the feature, <code>7e80b2b</code> the scripts, <code>9f6c41c</code> the code
+review&#39;s four fixes. The maintainer tested the demo locally before this doc was
+written and reported it good, so B is what is left rather than the whole surface.</p>
+<h2>A. Automated</h2>
+<ul>
+<li><strong>A1</strong> <code>npm test</code> — 413 pass, 28 files. One file fewer than main: <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/mock.test.ts"><code>test/mock.test.ts</code></a> tested <code>chunksOwed</code> and <code>readLooped</code>, which no longer exist.</li>
+<li><strong>A2</strong> <code>npm run lint</code> — clean, no warnings. <code>npx tsc -b</code> — clean.</li>
+<li><strong>A3</strong> Release build carries no simulated engine: no <code>engine-worklet</code> asset, no <code>mock-engine</code> chunk, no <code>openMockEngine</code>/<code>mockRpmBounds</code>/<code>clampMockRpm</code> symbol, button and slider eliminated. Checked as files <em>and</em> as base64 — Vite inlines any worklet under 4 KB, so <code>dist/assets/</code> alone proves nothing.</li>
+<li><strong>A4</strong> Demo build (<code>VITE_SAMPLES=1 VITE_MOCK=1</code>) emits <code>engine-worklet-*.js</code> and <code>mock-engine-*.js</code>, and <code>dist/samples/</code>.</li>
+<li><strong>A5</strong> Size: 378,697 bytes against main&#39;s 376,416. The +2,281 is the three strings in seventeen languages; <code>index.js</code> itself is smaller than main&#39;s.</li>
+<li><strong>A6</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/engine-worklet.js"><code>src/live/engine-worklet.js</code></a> is byte-identical to revbench&#39;s below the added header.</li>
+<li><strong>A7</strong> The sweep: 600–12,000 rpm, both strokes, inside 1.1%, search range scaled to the engine rendered. <code>evidence/sweep-2026-09-15.txt</code>.</li>
+</ul>
+<h2>B. Manual checklist</h2>
+<p>The maintainer&#39;s to tick. Everything here needs a device or an eye. <strong>All eight
+confirmed passing by the maintainer, 2026-09-15.</strong></p>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>B1</strong> <code>./scripts/install.sh --demo</code> on the AGM G3: the button is there, the engine is audible through the phone&#39;s speaker, the dial settles at 1500.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B2</strong> The slider, on the phone: dragged to each end and back, the sound follows and the reading agrees once settled (~1.5 s, being a 2 s window and a median of five).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B3</strong> Landscape on the phone. The slider adds a row to a stage 360 px tall; if it crowds the scope, the fix is to float it over the scope, not to shrink the dial. See D1.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B4</strong> Urdu: the badge and the slider label inside the RTL layout, figure still left-to-right.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B5</strong> <code>./scripts/dev.sh</code> with no flag gives the app as it ships — no Mock button, no samples sheet. Same for <code>./scripts/apk.sh</code> and the APK it installs.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B6</strong> <code>./scripts/dev.sh --demo --build</code> serves on 4173 and behaves as the dev server did, since that is what the website will run.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B7</strong> Both themes, on the phone: the slider&#39;s track and thumb follow the palette. They are drawn by hand because a platform range input does not.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B8</strong> The two stop races the review found (<code>9f6c41c</code>): press Stop while Chrome&#39;s permission prompt is up, then grant — the recording indicator must go out. On the phone, press Stop the instant Start is pressed, twice over, and confirm live mode is genuinely off rather than a dial that needs stopping again.</li>
+</ul>
+<h2>C. Findings</h2>
+<p>All four from the code review are fixed in <code>9f6c41c</code>; listed because the last two were older than this branch.</p>
+<ul>
+<li><strong>C1</strong> <code>captureFrom</code> did not re-check after <code>context.resume()</code>, so a stop inside the resume window left a zombie run — stop button and scope on screen, everything behind them gone. <em>(fixed)</em></li>
+<li><strong>C2</strong> The <code>if (stopped) { stop(); return }</code> guards after <code>getUserMedia</code> and <code>RawAudio.start</code> were no-ops: <code>stop()</code> returned early on a flag the earlier stop had already set, so the device that had since opened was never released. Browser indicator stays lit; on Android the native recorder held the microphone for the full 600 s cap. Pre-existing on both mic paths. <em>(fixed — release split from stop)</em></li>
+<li><strong>C3</strong> <code>clampMockRpm</code> was written for the start speed and never called. Safe only because the dial cannot be set below 9,000, which is a fact about another file. <em>(fixed — clamped where the bounds are known, passed into <code>start</code>)</em></li>
+<li><strong>C4</strong> <code>aab.sh</code> ignored any argument that was not <code>--samples</code>, so <code>aab.sh --demo</code> built a plain release in silence, and it inherited <code>VITE_MOCK</code> from the shell. <em>(fixed — refuses <code>--demo</code> by name, unsets the flag)</em></li>
+<li><strong>C5</strong> <em>Not</em> fixed, deliberately: shrinking the dial&#39;s max below the slider&#39;s value <strong>while the mock runs</strong> pins the needle at the stop with the sound unchanged. That is <code>dial.ts</code>&#39;s documented behaviour for any reading past the face, and what a real tachometer does. Raised so the decision is on the record.</li>
+<li><strong>C6</strong> The three strings cost every build 2 KB, demo or not. <code>en.ts</code> is one object and every bundle is typed against it, so a key that exists for the demo exists everywhere. No flag can remove it and none should try.</li>
+</ul>
+<h2>D. Open questions</h2>
+<ul>
+<li><del><strong>D1</strong> Landscape (B3).</del> Judged on the phone and passing, so the slider stays where it is: a row of its own, not floated over the scope.</li>
+<li><strong>D2</strong> The dev server no longer carries the samples either — the defaults were inverted for both flags together, on the grounds that one rule beats two. It is a change to behaviour that predates this feature, so it is worth confirming rather than assuming.</li>
+<li><strong>D3</strong> Task 14, the Playwright pass, was never run. What happened instead is the thing that gate exists to approximate — the maintainer driving the app on a real phone — so the question is whether the branch merges on that, or whether the written gate is owed a headless pass as well. The maintainer&#39;s call.</li>
+</ul>
+
+</div></body></html>

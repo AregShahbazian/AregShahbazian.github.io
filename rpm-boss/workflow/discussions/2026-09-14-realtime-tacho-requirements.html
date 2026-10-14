@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Realtime tachometer — requirements for the PRD</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../index.html">workflow docs</a> / <a href="index.html">discussions</a> / 2026-09-14-realtime-tacho-requirements.md</nav>
+<h1>Realtime tachometer — requirements for the PRD</h1>
+<p><em>2026-09-14. Feature: realtime tachometer (<code>feat/realtime-tacho</code>). Third of the
+day, after <a href="2026-09-14-realtime-tacho-layout-and-viz-libs.html">layout and visualization libraries</a>
+and <a href="2026-09-14-tacho-range-and-detection-limits.html">range and detection limits</a>.</em></p>
+<h2>Summary</h2>
+<p>The behaviour of the live screen, written down for the PRD. The shape is a
+resting state and a running one: the app opens with the dial at zero, the
+reading showing <code>---</code>, and a large Start button filling the live-waveform
+section. Pressing it takes the microphone — listening, not recording — and the
+three parts come alive at once: the button&#39;s section becomes the oscilloscope,
+the needle follows the estimate, the line under the dial reads rpm. Stopping
+returns everything to rest. Most of the session went on the edges rather than
+the happy path: where the stop control lives in each orientation, what happens
+to the other source buttons while the microphone is held, and what the screen
+shows when the estimator has nothing to say — which, with a 600 rpm floor and a
+confidence threshold, is a real state and not an edge case. That last question
+resolved into two user settings rather than one decision, and the settings modal
+grew a collapsible section to hold them.</p>
+<h2>Key conclusions</h2>
+<h3>Resting state</h3>
+<ul>
+<li>The tachometer is visible from app start, needle at 0.</li>
+<li>The rpm result line reads <code>---</code>.</li>
+<li>The live-waveform section holds a large Start button filling its full height.</li>
+</ul>
+<h3>Running state</h3>
+<ul>
+<li>Start takes microphone access without recording; the section becomes the live
+waveform, the needle follows the value, the result line shows rpm.</li>
+<li><strong>Stop button, portrait:</strong> to the right of the settings button in the source
+row, twice as wide as an icon button, with a stop icon.</li>
+<li><strong>Stop button, landscape:</strong> under the source row, the full width of that row.</li>
+<li><strong>Record, Open and Sample are disabled while live mode runs.</strong> Stopping
+removes the stop button and re-enables them.</li>
+<li>Microphone refusal uses the existing error styling and placement — the line
+above the status.</li>
+<li>The needle is interpolated between readings, not stepped: <code>WINDOW_S = 1</code> gives
+a reading roughly every second while the scope redraws at 60 fps.</li>
+</ul>
+<h3>When there is no estimate</h3>
+<p>Engine off, too quiet, below the 600 rpm floor, or under the confidence
+threshold. Two settings rather than one answer:</p>
+<ul>
+<li><strong>Fallback:</strong> drop to 0, or hold the last value. <strong>Default: fall to 0.</strong></li>
+<li><strong>Motion:</strong> smooth, or jump/step between values. <strong>Default: smooth.</strong></li>
+</ul>
+<p>Both persist in localStorage, the same mechanism the theme uses.</p>
+<h3>Settings modal</h3>
+<ul>
+<li>The modal gains a border.</li>
+<li>Under the theme section: a horizontal divider, then a collapsible section
+headed &quot;Tachometer settings&quot;, <strong>collapsed by default</strong> — the header is the
+only thing visible when closed.</li>
+<li>Inside, two rows, each a label and a dropdown/picker on the same row.</li>
+<li>All strings translated into all seventeen languages, like everything else.</li>
+</ul>
+<h3>Styling</h3>
+<ul>
+<li>Tachometer range as decided: 0–12,000 rpm, redline from 9,000.</li>
+<li>Tachometer and live waveform are deliberately minimal for now; refinement is a
+later feature.</li>
+<li>The live waveform&#39;s styling matches the recorded waveform&#39;s.</li>
+</ul>
+<h2>Open questions</h2>
+<ul>
+<li>The theme section stays a bare section while the tachometer section collapses.
+Either is fine, but the PRD should say it is deliberate.</li>
+<li>Does the app keep listening when backgrounded, or release the microphone on
+<code>pause</code>?</li>
+<li>Is there a maximum session length, or does live mode run until stopped?</li>
+<li>Does the live path assume four-stroke (<code>REVS_PER_PULSE = 2</code>) like the batch
+path, and what happens when the 2-stroke preset eventually lands?</li>
+<li>Does opening a file or a sample while live runs stop live mode, or is it
+simply unreachable because those buttons are disabled?</li>
+</ul>
+<h2>Ideas to realize</h2>
+<ul>
+<li>Build the resting state first: dial at 0, <code>---</code> reading, full-height Start
+button in the waveform section.</li>
+<li>Wire Start to microphone access without recording, switching all three parts
+of the stage into their running state together.</li>
+<li>Place the stop control per orientation: beside the settings button in
+portrait (double-width, stop icon), full-width under the source row in
+landscape.</li>
+<li>Disable Record, Open and Sample for the duration of live mode, re-enabling on
+stop.</li>
+<li>Reuse the existing error line, styling and placement for microphone refusal.</li>
+<li>Interpolate the needle between one-second readings so motion is smooth at
+60 fps.</li>
+<li>Add a &quot;no estimate&quot; fallback setting — drop to 0 (default) or hold the last
+value.</li>
+<li>Add a needle-motion setting — smooth (default) or step.</li>
+<li>Persist both in localStorage alongside the theme.</li>
+<li>Give the settings modal a border.</li>
+<li>Add a divider under the theme section, then a collapsible &quot;Tachometer
+settings&quot; section, closed by default, with label + picker rows.</li>
+<li>Translate every new string into all seventeen languages.</li>
+<li>Match the live waveform&#39;s styling to the recorded waveform&#39;s, and keep both
+the gauge and the scope minimal until the styling-refinement feature.</li>
+</ul>
+
+</div></body></html>

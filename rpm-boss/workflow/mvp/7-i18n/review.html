@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review — Languages</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">7-i18n</a> / review.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <b>review</b></nav>
+<hr>
+<h2>id: rb-i18n
+feature: 7-i18n
+branch: feat/7-i18n
+stage: review
+status: closed 2026-09-10 — B1-B17 confirmed by the maintainer
+created: 2026-09-10
+commits: 5dfc47c..051c7b5 (4 on the branch, unpushed)</h2>
+<h1>Review — Languages</h1>
+<p>Review only: findings and a checklist, no fixes. Approved fixes land on the
+branch as <code>fix(...): ... [rb-i18n]</code>.</p>
+<h2>A. Automated</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm test</code></td>
+<td>296 passed, 19 files (this phase adds 124)</td>
+</tr>
+<tr>
+<td><code>npm run lint</code></td>
+<td>clean</td>
+</tr>
+<tr>
+<td><code>tsc -b</code> + <code>npm run build</code></td>
+<td>clean, 256 kB JS / 82 kB gzipped, plus 16 language chunks of 2-3 kB</td>
+</tr>
+<tr>
+<td><code>npm run android:build</code></td>
+<td>release APK, installed and exercised</td>
+</tr>
+</tbody></table>
+<h2>B. Manual checklist</h2>
+<p>B1-B14 were driven by Claude in laptop Chrome and on the maintainer&#39;s phone
+over adb. Claude wrote the translations, so B15 and B16 are the ones it cannot
+do: no amount of testing tells you whether a sentence reads naturally to
+someone who speaks the language.</p>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>B1</strong> (agent-verified) The picker lists all seventeen, each by its own name in its own script, sorted Latin A to Z and then one block per script: Cebuano … Tiếng Việt, Русский, Українська, Հայերեն, اردو, हिन्दी, বাংলা, ไทย.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B2</strong> (agent-verified) Choosing a language changes every string at once, and the choice survives a reload.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B3</strong> (agent-verified) A language merely detected from the device is <strong>not</strong> stored, so the app follows the phone until someone chooses otherwise (C1 fix).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B4</strong> (agent-verified) Switching three languages in quick succession lands on the last one, with <code>lang</code> and the strings agreeing (C3 fix).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B5</strong> (agent-verified) <code>document.documentElement.lang</code> follows the choice, so a screen reader and the browser&#39;s own line-breaking use the right language (C6 fix).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B6</strong> (agent-verified) The whole flow in Spanish: <code>Cargado: after-cold.wav · 6,4 segundos</code>, Calcular, <strong>1449 rpm</strong>, <code>75 combustiones marcadas</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B7</strong> (agent-verified) The rpm figure has no thousands separator in any language, as decided; the duration beside it does follow the language, <code>6,4 segundos</code> against <code>6.4 seconds</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B8</strong> (agent-verified) No layout overflow in English, Filipino, Cebuano, Kiswahili, Português or Հայերեն, the longest of the set.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B9</strong> (agent-verified) Every language has exactly the English key set, with the same placeholders, and none is English pasted in. Asserted for all sixteen.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B10</strong> (agent-verified) <code>Intl.NumberFormat</code> gives the right plural form where a language has them: Russian <em>секунда</em>, <em>секунды</em>, <em>секунд</em> at 1, 2 and 5.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B11</strong> (agent-verified) Android: a device set to <code>en-US</code> opens the app in English.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B12</strong> (agent-verified) Android: the picker opens the platform&#39;s own dialog, drawn in each language&#39;s script, and choosing Tiếng Việt translates the app.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B13</strong> (agent-verified) Android: the choice survives a force-stop and relaunch.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B14</strong> (agent-verified) Android: Urdu renders correctly line by line inside the left-to-right layout, with the text right-aligned by the browser&#39;s own bidi handling. The label sits left of the picker, which is the layout being wrong rather than the text.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B15</strong> <del>Someone who speaks it reads the Tagalog, Bisaya or Armenian.</del> <strong>Deferred by the maintainer</strong>: finding speakers of seventeen languages before the app has users is the wrong order. Real correction comes from the people who use it.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B16</strong> <del>The same for a script nobody here reads.</del> Deferred with B15.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B17</strong> Phone: after the merge, the same passes on the deployed site.</li>
+</ul>
+<h2>C. Code-review findings, disposition</h2>
+<p>Run by Claude at the maintainer&#39;s standing permission, at high effort. Nine
+findings, all fixed in <code>051c7b5</code>, and the four reachable from a browser
+re-verified afterwards. The maintainer was away, so fixing all nine was
+Claude&#39;s call; any of them can be reversed.</p>
+<ul>
+<li><strong>C1</strong> ✅ fixed — a language <strong>detected</strong> from the device was stored as if it had been <strong>chosen</strong>. A phone opened once in Spain stayed Spanish after the phone was switched to Portuguese, with no way back to following the device. Only the picker writes now. Verified in B3.</li>
+<li><strong>C2</strong> ✅ fixed — anything that was not an <code>InputError</code> reported &quot;Recording failed. Try again.&quot; to a user who had just tried to open a file. A neutral <code>errorUnknown</code> covers it, in all seventeen languages.</li>
+<li><strong>C3</strong> ✅ fixed — two switches on a slow connection resolved in whichever order the chunks arrived, so the app could show Russian under a <code>lang</code> of Thai. A request token drops stale resolutions. Verified in B4.</li>
+<li><strong>C4</strong> ✅ fixed — a chunk that failed to load fell back to English but left the picker showing the failed language, so selecting it again fired no change event and there was no way to retry. The language falls back with the messages.</li>
+<li><strong>C5</strong> ✅ fixed — the &quot;carries the code, not a sentence&quot; test asserted inside a bare <code>catch</code>, so a version that stopped throwing would have passed with no assertions run.</li>
+<li><strong>C6</strong> ✅ fixed — <code>document.documentElement.lang</code> was never set. Verified in B5.</li>
+<li><strong>C7</strong> ✅ fixed — the bare-string test looked only for full sentences in three top-level directories, which is not where a hurried <code>&#39;Calculate&#39;</code> would go. It walks six trees and catches a lone capitalised label. It also strips comments first, since comments discuss the strings without being them.</li>
+<li><strong>C8</strong> ✅ fixed — counts inside sentences stayed ASCII while durations were localised, so a Bengali screen mixed Bengali and Latin digits. Counts follow the reader now. The rpm figure deliberately does not, being a gauge reading.</li>
+<li><strong>C9</strong> ✅ fixed — the whole stop label had been wrapped in the monospaced class, which for Thai, Bengali, Armenian and Urdu means whatever fallback the WebView picks. Only the counter is monospaced.</li>
+</ul>
+<h2>D. What changed outside this phase</h2>
+<ul>
+<li><strong>D1</strong> The English was rewritten before anything was translated, in its own commit. Thirteen strings are shorter or plainer, and two words went for being jargon: &quot;clip&quot;, an editing word where a rider says recording, and &quot;upload&quot;, which implies sending something somewhere this app never sends it.</li>
+<li><strong>D2</strong> Errors travel as codes now. <code>INPUT_ERROR_MESSAGES</code> and <code>ANALYSIS_ERROR_MESSAGES</code> are gone, and <code>InputError</code>&#39;s message is its code, which is what a developer wants in a stack trace anyway.</li>
+<li><strong>D3</strong> <code>AudioInputState.error</code> and <code>AnalysisState.error</code> hold codes rather than sentences, and a development-only <code>errorDetail</code> carries the cause chain that used to be appended to the message.</li>
+<li><strong>D4</strong> The language preference joins the expected-range panel in <code>localStorage</code>, under <code>rpm-boss.language</code>.</li>
+</ul>
+<h2>E. New findings from this round</h2>
+<ul>
+<li><strong>E1</strong> <del>The app showed Portuguese on a phone set to <code>en-US</code>.</del> Not a finding: the maintainer had chosen Portuguese in an earlier install. The stored preference was doing exactly its job.</li>
+<li><strong>E2</strong> Urdu ships with a left-to-right layout, by decision. The text reads correctly because the browser applies bidi per line, but the picker&#39;s label sits to the left of it and the crop handles will be the wrong way round. Phase 8.</li>
+<li><strong>E3</strong> The translations are Claude&#39;s and no native speaker has seen them. Every file says so in its header. The maintainer deferred verification to after launch, on the grounds that hunting down seventeen speakers before the app has users is the wrong order; corrections will come from the people who use it. That makes a way to report a bad string a post-MVP concern worth remembering.</li>
+<li><strong>E4</strong> <code>duration()</code> formats through <code>Intl</code> for any tag, but Cebuano and Filipino fall back to English formatting in most engines, so a Cebuano reader sees &quot;2 seconds&quot; inside an otherwise Cebuano sentence. Correct, since there is no Cebuano unit data to use, but worth knowing.</li>
+<li><strong>E5</strong> Sixteen language chunks are 2-3 kB each and load on demand. A user on a slow connection sees English for a moment before their language arrives. Acceptable, and the alternative costs every user fifteen languages they cannot read.</li>
+</ul>
+<h2>F. Open questions carried from the PRD</h2>
+<ul>
+<li>All four were settled before the design and are recorded in the PRD: separate Indonesian and Malay files, English fallback per key, Google&#39;s language labels, and sorting by the written name.</li>
+</ul>
+<h2>G. Environment</h2>
+<p>Laptop Chrome through Playwright, and the maintainer&#39;s phone over adb for
+B11-B14. The translations themselves are unverified by anyone who speaks the
+languages.</p>
+
+</div></body></html>

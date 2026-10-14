@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review — Analysis</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">4-analysis</a> / review.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <b>review</b></nav>
+<hr>
+<h2>id: rb-analysis
+feature: 4-analysis
+branch: feat/4-analysis
+stage: merged
+status: closed 2026-09-10 — B1-B21 confirmed by the maintainer; merged as e917e1c, deployed
+created: 2026-09-10
+commits: a4e8601..481cac7 (20 on the branch, unpushed)</h2>
+<h1>Review — Analysis</h1>
+<p>Review only: findings and a checklist, no fixes. Approved fixes land on the
+branch as <code>fix(...): ... [rb-analysis]</code>.</p>
+<h2>A. Automated</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm test</code></td>
+<td>148 passed, 15 files (analysis adds biquad 15, fft 6, envelope 4, autocorr 13, pulses 11, analyse 18, fixtures 35)</td>
+</tr>
+<tr>
+<td><code>npm run lint</code></td>
+<td>clean</td>
+</tr>
+<tr>
+<td><code>tsc -b</code> + <code>npm run build</code></td>
+<td>clean, 237 kB JS / 74.9 kB gzipped, plus a 4.6 kB worker chunk</td>
+</tr>
+<tr>
+<td><code>python3 scripts/reference/analyse.py</code></td>
+<td>reproduces <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/combustion-counts.md"><code>audio/combustion-counts.md</code></a> on all seven fixtures</td>
+</tr>
+</tbody></table>
+<h2>B. Manual checklist</h2>
+<p>B1-B16 were driven by Claude in laptop Chrome through synthetic pointer events
+and uploads, and what it observed is noted on each item. The maintainer
+confirmed B1-B21 on 2026-09-10, phone included, and B20 on the deployed site
+after the merge. Every box is ticked; the phase is closed.</p>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>B1</strong> (agent-verified) <code>after-cold.wav</code> at its default 0:00.0-0:06.4 window reads <strong>1449 rpm · 12.08 combustions/s</strong>, against 1449 from the scipy baseline and 1427 ± 62 from <code>expected.json</code> (AC 1, AC 4).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B2</strong> (agent-verified) Cropping the same clip to 0:00.0-0:03.8 and pressing Calculate reads <strong>1450 rpm · 12.09</strong>, against 1450 from the baseline over the same range. The window, not the clip, is what gets analysed.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B3</strong> (agent-verified) Moving the crop window clears the previous number before a new one is asked for, so no result is ever shown under a window it did not come from.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B4</strong> (agent-verified) An expected range of 2600-3400 on a clip reading 1449 gives <strong>2898 rpm · range applied</strong>, with the underlying 12.08 combustions/s unchanged (AC 5).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B5</strong> (agent-verified) With the range fields empty the same clip still reads 1449, so an unused range changes nothing (AC 5, second half).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B6</strong> (agent-verified) Non-engine audio is refused with &quot;Couldn&#39;t hear a steady engine in that section&quot;, not a number (AC 6). Four clips in <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/audio/testing/"><code>audio/testing/</code></a> cover it — hiss, a quiet room, low rumble and speech-like modulation — scoring 0.00 to 0.22 against the 0.45 threshold. The fifth, <code>noise-tone.m4a</code>, is accepted at 1.77; that is <strong>E2</strong> below, and it is in the folder on purpose.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B7</strong> (agent-verified) A 1.5 s upload is refused at load with &quot;That clip is too short. Record or pick at least 2 seconds&quot; — the new minimum, named by the message rather than hardcoded.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B8</strong> (agent-verified) The 67.5 s <code>all-samples.m4a</code> shows the overview and detail pair, defaults to a 0:00.0-0:10.0 window, and reads <strong>1608 rpm</strong>, which is the first recording in that file (baseline 1607).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B9</strong> (agent-verified) Moving the window to 0:36.9-0:46.9 on the same file reads <strong>1430 rpm</strong>, a different recording in the join, confirming the window drives the answer.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B10</strong> (agent-verified) A 10 s window returns in <strong>227 ms</strong> from click to number, worker startup included, against the 1 s budget in the PRD (AC 4).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B11</strong> (agent-verified) The analysis runs in its own bundle chunk, so the main thread is not doing this work.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B12</strong> (agent-verified) The seven fixtures all land inside <code>toleranceRpm</code>, both estimators agree within 3 %, and every rate is within 0.01 % of the scipy baseline (AC 1, AC 2, AC 3).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B13</strong> (agent-verified) Uploading the same file twice, with an identical default window, clears the first result rather than leaving it under the new clip (C1 fix).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B14</strong> (agent-verified) With the <code>Worker</code> constructor forced to throw, Calculate shows &quot;Couldn&#39;t run the analysis&quot; and leaves the button and the range fields usable, rather than sitting on &quot;Analysing…&quot; (C1 fix).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B15</strong> (agent-verified) The expected range is folded away on first load, opens on a tap, and the choice survives a reload; a range typed while open still reaches the analysis.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B16</strong> (agent-verified) Closing it again flips the stored preference back, so the section is not sticky in one direction.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B17</strong> Phone: Calculate on a recorded clip returns in about a second, with the busy state visible while it runs.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B18</strong> Phone: the range section opens with a thumb, the fields take a numeric keyboard, and an octave correction works on a real recording.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B19</strong> Phone: a window under 2 s cannot be selected, and a recording under 2 s is refused at load with the new message. The four non-engine clips in <code>Download/rpms/testing/</code> are refused.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B20</strong> Phone: after the merge, the same passes on the deployed site.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B21</strong> Phone, <strong>Brave</strong>: Record fails within about a third of a second with the &quot;will not record without the processing&quot; message, rather than after a full take.</li>
+</ul>
+<h2>C. Code-review findings, disposition</h2>
+<p>The round the maintainer triggered produced five findings. All are addressed on
+the branch, in three commits, and each was re-driven in Chrome afterwards.</p>
+<ul>
+<li><strong>C1</strong> ✅ fixed in 88a32df — the analysis client set only <code>onmessage</code>, so a worker that failed to load left the run awaiting forever with Calculate and the range fields disabled until a reload. Every path settles now, including a <code>Worker</code> constructor that throws and a <code>dispose</code> with requests outstanding. Verified in B14.</li>
+<li><strong>C2</strong> ✅ fixed in 88a32df — the reset key came from the clip&#39;s name, and recording names carry only minutes, so two recordings inside one minute shared a key and the previous rpm stayed on screen under the new clip. Clips carry an id that rises on every load. Verified in B13.</li>
+<li><strong>C3</strong> ✅ fixed in b628b9d — the octave candidates were ordered half, estimate, double, and the tie-break kept the first, so a correct 2000 rpm inside a 900-2100 range was reported as 1000. The measurement now wins whenever it fits the range at all. That also removed the tie-break as dead code: a range holding both half and double holds the estimate between them, so at most one octave is ever a candidate.</li>
+<li><strong>C4</strong> ✅ fixed in f7cada8 — the Python baseline used a true Butterworth bandpass while the port cascades a highpass and a lowpass. They agree to 0.06 rpm, so nothing failed, but the fixture check could not have seen drift in that stage. The Python runs the same cascade now, so the baseline grades the chain that actually ships.</li>
+<li><strong>C5</strong> ✅ fixed in f7cada8 — <code>filtfilt</code> padded one sample less than scipy&#39;s <code>sosfiltfilt</code>, which uses <code>edge = 3 * (2 * sections + 1)</code>. Harmless in itself, but a silent divergence from the thing the port is graded against.</li>
+</ul>
+<p>With C4 and C5 in, the port matches the baseline to <strong>0.0004 %</strong>, so the
+fixture tolerance dropped from 1 % to 0.01 % and can now catch a real change.</p>
+<h2>D. What changed outside this phase</h2>
+<ul>
+<li><strong>D1</strong> <code>MIN_CLIP_S</code> rose from 1 s to 2 s, measured rather than chosen: below 2 s one fixture falls outside its tolerance at some window positions. <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/scripts/reference/sweep.py"><code>scripts/reference/sweep.py</code></a> reproduces the table in <code>design.md</code> §0.1.</li>
+<li><strong>D2</strong> The too-short message now derives from the constant. Phase 7 inherits an interpolation case, which is the kind a naive extraction pass misses.</li>
+<li><strong>D3</strong> <code>MIN_WINDOW_S</code> in <code>waveform/selection.ts</code> follows <code>MIN_CLIP_S</code> rather than holding its own copy of the number. Phase 3 recorded them as already being one constant; they were two.</li>
+<li><strong>D4</strong> Phase 3&#39;s <strong>B3</strong> tested the smallest crop window at 1.0 s. That boundary is now 2.0 s. The phase 3 review is closed, so the change is recorded here.</li>
+<li><strong>D5</strong> <code>getWindowClip()</code> is now consumed, closing phase 3&#39;s <strong>D4</strong>.</li>
+<li><strong>D6</strong> <code>AudioInputState</code> gained <code>clipId</code>, which anything needing to notice &quot;different clip now&quot; should key off rather than the source name.</li>
+<li><strong>D7</strong> The expected range is a collapsed <code>&lt;details&gt;</code> now, remembered in <code>localStorage</code> under <code>rpm-boss.range-open</code>. Asked for during the review stage, so it sits outside the code-review round above. First device-persisted preference in the app; phase 7 will want the summary text in the translation sweep.</li>
+<li><strong>D8</strong> <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/audio/testing/"><code>audio/testing/</code></a> gained five non-engine clips, and <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/scripts/reference/__pycache__"><code>scripts/reference/__pycache__</code></a> was untracked and ignored.</li>
+<li><strong>D9</strong> Recording was rewritten. Echo cancellation had been left on since phase 2 and was gating the engine note about a second in; turning it off reproduces the phase 2 failure in <code>MediaRecorder</code>, so capture moved to an audio worklet. Chrome now records flat; Brave grants the constraints and returns digital silence, which is detected in 300 ms and reported with a message naming the cause. Full account in <a href="../../discussions/2026-09-10-android-microphone-capture.html"><code>discussions/2026-09-10-android-microphone-capture.md</code></a>.</li>
+<li><strong>D10</strong> <code>InputErrorCode</code> gained <code>capture-blocked</code>, and a development-only <strong>Mic check</strong> panel reports what the microphone actually grants and delivers. The panel is the only way to ask this of a phone without a cable, and it stays for now.</li>
+<li><strong>D11</strong> The parabolic lag refinement could run past the peak on degenerate audio and return a negative rate. Guarded in both the port and the Python baseline; fixture values unchanged.</li>
+<li><strong>D12</strong> A development-only &quot;Export recording&quot; button writes the loaded clip as 16-bit mono wav, the format <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/test/fixtures/"><code>test/fixtures/</code></a> uses, with the crop window in the file name. Added during the review stage after the maintainer lost a problem recording to a page reload. <code>encodeWav</code> in <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/dsp/wav.ts"><code>src/dsp/wav.ts</code></a> is the inverse of the reader the fixtures already went through, and the production bundle contains no trace of the button.</li>
+</ul>
+<h2>E. New findings from this round</h2>
+<ul>
+<li><strong>E1</strong> A refused upload leaves the previous clip loaded <em>and</em> its previous result line on screen, so the error and a stale number are visible together. Consistent with how phase 2 handled a refused upload, but worth a look on the phone where less fits on screen.</li>
+<li><strong>E2</strong> A pure tone is reported as an engine, because a flat envelope correlates with itself at every lag. <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/testing/noise-tone.m4a"><code>audio/testing/noise-tone.m4a</code></a> scores 1.77 and reads 1875 rpm; the other four non-engine clips score 0.00 to 0.22 against a 0.45 threshold. Recorded and now demonstrable, not guarded against — nothing that comes out of a microphone in a garage looks like it.</li>
+<li><strong>E3</strong> The two estimators are not independent: the peak-count method takes its minimum spacing from the rate the autocorrelation found. That is the reference&#39;s own design, and their agreement is still a real check because the count comes from the envelope, but it is not the independent confirmation it might look like.</li>
+<li><strong>E4</strong> <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/scripts/reference/"><code>scripts/reference/</code></a> needs numpy and scipy, which the npm test run does not. It is a development aid, not part of CI. If the fixtures are ever regenerated, <code>reference.json</code> has to be regenerated with them.</li>
+<li><strong>E5</strong> The <code>worker-failed</code> message tells the user to reload, which is the only recovery the app offers. If module workers turn out to be missing on a target browser, the fix is a main-thread fallback rather than a better message.</li>
+</ul>
+<h2>F. Unreproduced</h2>
+<ul>
+<li><strong>F1</strong> The maintainer saw a recorded clip leave the app on &quot;Analysing…&quot; with no result, on the phone, and lost the clip to a page reload. Not reproduced. The obvious suspect is <strong>C1</strong>, a worker that never answers, which was exactly this failure and is fixed on the branch; whether that session predates the fix is unknown. Two theories were tested and ruled out: peak picking is not quadratic in practice, because the 150 Hz envelope holds local maxima under 1500 even for noise, dither and a clipped square wave, and every one of those inputs completed in under 100 ms. The export button (<strong>D9</strong>) exists to capture the next one — it keeps working while a run is stuck, since it reads the clip rather than the analysis. A watchdog that fails a run after a few seconds would make the state unreachable regardless of cause; not added, since it was not asked for.</li>
+</ul>
+<h2>G. Open questions carried from the PRD</h2>
+<ul>
+<li>Both are answered, with numbers, in <code>design.md</code> §0.1 and §0.2: the minimum window is 2 s, and the failure path uses a confidence threshold of 0.45 rather than &quot;no peak in the lag range&quot;.</li>
+</ul>
+<h2>H. Environment</h2>
+<p>Laptop Chrome through Playwright, uploads only. The laptop microphone does not
+work under Ubuntu, so recording is testable only on the phone, which is what
+B17-B19 cover; B20 covers the deployed site after the merge.</p>
+
+</div></body></html>

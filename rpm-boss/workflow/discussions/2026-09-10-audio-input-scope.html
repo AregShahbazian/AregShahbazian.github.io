@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio input scope (MVP phase 2-audio-input) — 2026-09-10</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../index.html">workflow docs</a> / <a href="index.html">discussions</a> / 2026-09-10-audio-input-scope.md</nav>
+<h1>Audio input scope (MVP phase 2-audio-input) — 2026-09-10</h1>
+<p>Discussion before writing the PRD for the first phase built under the gated
+workflow. The maintainer set the limits, Claude proposed defaults where asked.</p>
+<h2>Summary</h2>
+<p>Every input, uploaded or recorded, ends as a mono buffer and is always passed
+through a crop step capped at 10 s, so long files are handled and huge files
+are prevented. Video input is deferred: it needs a proper crop-with-preview
+flow (like sharing a video on WhatsApp) that is too much for the MVP.</p>
+<h2>Conclusions</h2>
+<ul>
+<li>Max analysed window: <strong>10 s</strong>. Crop is <strong>always shown</strong>, even for short files.</li>
+<li>Recording: <strong>hard stop at 10 s</strong>, visible countdown, stop button.</li>
+<li>Upload size cap: <strong>50 MB</strong> (duration stays the real bottleneck).</li>
+<li>Formats promised: <strong>WAV, MP3, AAC/M4A, OGG</strong>. Recordings arrive as
+WebM/Opus from MediaRecorder on Android Chrome, so that decodes too.</li>
+<li>Internal format: <strong>16 kHz mono</strong>, matching fixtures and the reference method.</li>
+<li>Mic constraints: echo cancellation, noise suppression and auto gain <strong>off</strong>,
+mono. Browser processing mangles engine pulses.</li>
+<li><strong>Playback</strong> of the loaded audio is in scope for this phase.</li>
+<li><strong>Video files: out of the MVP</strong> (backlog).</li>
+</ul>
+<h2>Open questions</h2>
+<ul>
+<li>Whether a 10 s window is always enough for the autocorrelation method at
+very low idle; revisit in 4-analysis if fixtures disagree.</li>
+</ul>
+<h2>Ideas to realize</h2>
+<ul>
+<li>Video input with crop-and-preview: load a long video, scrub with the
+waveform visible, pick the section, extract audio. Post-MVP.</li>
+<li>Long-audio crop UX: overview waveform plus a movable 10 s window, for files
+much longer than 10 s (needed in 3-waveform-crop, note for its PRD).</li>
+</ul>
+
+</div></body></html>

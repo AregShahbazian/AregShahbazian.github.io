@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8-ui-overhaul — inspiration research</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">8-ui-overhaul</a> / inspiration.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a></nav>
+<h1>8-ui-overhaul — inspiration research</h1>
+<p><strong>Date:</strong> 2026-09-10 · <strong>Stage:</strong> pre-PRD input, not the PRD.</p>
+<p>Visual board (all screenshots, annotated):
+<a href="https://claude.ai/code/artifact/2cd56646-88ee-40e4-9e41-5e69fba0773b">https://claude.ai/code/artifact/2cd56646-88ee-40e4-9e41-5e69fba0773b</a></p>
+<p>Images in <code>inspiration/</code>. The rpm-boss shots were captured from the live build
+at areg.nl/rpm-boss with headless Chrome 152, sample <code>Standard recording 1.aac</code>
+(11.2 s), viewport 844×390.</p>
+<h2>Measured, current build</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Content column</td>
+<td>480 px of 844 (<code>.screen</code> max-width)</td>
+</tr>
+<tr>
+<td>Empty gutter</td>
+<td>364 px, 43 % of the screen</td>
+</tr>
+<tr>
+<td>Page height at result</td>
+<td>778 px against a 390 px viewport</td>
+</tr>
+<tr>
+<td>Answer position</td>
+<td>553 px down, ~2 swipes below the fold</td>
+</tr>
+<tr>
+<td>Result marks</td>
+<td>132 marks over ~360 px = one every 2.7 px</td>
+</tr>
+</tbody></table>
+<p>Portrait is <strong>not</strong> affected: ~760 px of content in an 844 px viewport, no
+scroll. This is a landscape-only failure, caused by the 480 px cap that makes
+portrait comfortable.</p>
+<p>Second finding, unprompted: the marks comb is unreadable at portrait width. The
+marks exist so a person can spot a doubled or halved beat. Width is not spare
+room here, it is what makes the evidence legible. That is an argument for
+landscape being a first-class mode rather than a tolerated one.</p>
+<h2>References collected</h2>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>File</th>
+<th>The move to steal</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Engine Sound Analyzer (<code>i.jetik.BIKERPM</code>)</td>
+<td><code>ref-engine-sound-analyzer-car/-bike.png</code></td>
+<td>Direct competitor, same job, landscape-native. Left third = settings + readout; right two-thirds = waveform over spectrum; sliders in the seam. Prints Hz <em>and</em> rpm so the arithmetic is checkable.</td>
+</tr>
+<tr>
+<td>WaveEditor for Android</td>
+<td><code>ref-waveeditor-android.png</code></td>
+<td>Waveform is the page, edge to edge. Transport floats over it, icon-only, no strings to translate.</td>
+</tr>
+<tr>
+<td>AudioMass (web)</td>
+<td><code>ref-audiomass-web.png</code></td>
+<td>All chrome in one top band, grouped into three clusters. Start/end/length is a cluster, not a paragraph row.</td>
+</tr>
+<tr>
+<td>Spectroid</td>
+<td><code>ref-spectroid.png</code></td>
+<td>Chart is the whole screen; two icons are the entire chrome; the reading is a label pinned to the peak, not a panel.</td>
+</tr>
+<tr>
+<td>Torque Pro</td>
+<td><code>ref-torque-gauges.png</code></td>
+<td>The bar to clear: rotating shows <em>more</em>, 6 gauges at once, never scrolls. Don&#39;t borrow the round needle gauge, it suits a live feed and we measure once.</td>
+</tr>
+<tr>
+<td>Tuner Ninja (web)</td>
+<td><code>ref-tunerninja-negative.png</code></td>
+<td>Counter-example. Same centred-column bug as ours, dial below the fold.</td>
+</tr>
+</tbody></table>
+<h2>Three layout options (detail and wireframes on the board)</h2>
+<ul>
+<li><strong>A · Split columns</strong> — controls + answer on one side, waveform on the other.
+The competitor&#39;s layout, least risky, portrait unchanged.
+Cost: waveform gets ~62 % of the width; a crop handle can sit under the hand.</li>
+<li><strong>B · Full-bleed waveform</strong> — waveform is the screen, one icon-first control
+bar, RPM as an overlay. Widest marks comb.
+Cost: overlay covers signal; the range fields need a sheet or popover.</li>
+<li><strong>C · Two stages</strong> — landscape has a crop state and an answer state.
+Cost: a state change to learn; re-cropping becomes deliberate.</li>
+</ul>
+<h2>On hiding components after Calculate (maintainer&#39;s question)</h2>
+<p>Verdict: yes to reducing, no to hiding. Demote rather than remove; a control
+that vanishes makes people hunt.</p>
+<ul>
+<li><strong>Open / Record</strong> — demote to icons, never hide. First fix for a bad reading
+is a new recording.</li>
+<li><strong>Crop waveform</strong> — merge with the result waveform. The same 10 s is drawn
+twice today. One canvas that gains marks after Calculate saves ~180 px of the
+778, the single biggest win available.</li>
+<li><strong>Play / time</strong> — keep, shrink to an icon plus a mono readout.</li>
+<li><strong>Expected range</strong> — keep collapsed and one tap away. It is the standard fix
+for the factor-of-two error.</li>
+<li><strong>Calculate</strong> — the one real hiding candidate. Its result is on screen and it
+goes stale when the crop moves; it could stand down until an input changes.</li>
+<li><strong>The number</strong> — never hidden, never below the fold.</li>
+<li><strong>Language picker</strong> — move out of the main flow. Its own comment says phase 8
+places it.</li>
+</ul>
+<h2>Constraints that bear on layout</h2>
+<ul>
+<li><strong>Urdu is RTL.</strong> <code>languages.ts</code> carries <code>rtl: true</code> on <code>ur</code> with a comment
+saying nothing reads it yet and phase 8 will. Any two-column landscape has a
+side that mirrors: pick the leading column now and express the split with
+logical properties (<code>inline-start</code>), not <code>left</code>. Waveform time still runs
+left to right, because that is time and not text. Icon-first controls help
+twice: no string to grow, nothing to re-measure per language.</li>
+<li><strong>Light theme is mostly a token swap.</strong> The canvas already reads its colours
+from CSS variables via <code>usePalette</code> and re-reads on scheme change. Two things
+do not simply invert: the record dot and error red need darker shades on
+white, and the 60 %-opacity selection blue reads much weaker over a light
+waveform. Dark stays the default.</li>
+<li><strong><code>LONG_CLIP_S = 30</code></strong> (<code>waveform/range.ts</code>) assumes a 360 px canvas. In a
+landscape layout the canvas can be 800 px+, so the overview threshold has to
+come from the measured width. Carried into this phase already by
+<a href="../../workflow.html"><code>workflow.md</code></a>; the redesign is what forces it.</li>
+</ul>
+<h2>Not yet decided</h2>
+<p>Which of A / B / C. That is the PRD&#39;s first question.</p>
+
+</div></body></html>

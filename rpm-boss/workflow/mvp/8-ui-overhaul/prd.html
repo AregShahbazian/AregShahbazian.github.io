@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD — UI overhaul</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">8-ui-overhaul</a> / prd.md &nbsp;|&nbsp; stages: <b>prd</b> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a></nav>
+<hr>
+<h2>id: rb-ui-overhaul
+feature: 8-ui-overhaul
+branch: feat/8-ui-overhaul
+status: approved
+created: 2026-09-10
+depends_on: [7-i18n]</h2>
+<h1>PRD — UI overhaul</h1>
+<h2>Goal</h2>
+<p>The app uses the screen it is on. It splits into two columns when there is
+width, it has a light theme beside the dark one, and the answer is never below
+the fold.</p>
+<h2>Why</h2>
+<p>This phase was scheduled last so the whole screen could be judged at once. It
+now can be, and it does not hold up. Measured on the live build at 844×390,
+with a result on screen:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Content column</td>
+<td>480 px of 844</td>
+</tr>
+<tr>
+<td>Empty gutter</td>
+<td>364 px, 43 % of the screen</td>
+</tr>
+<tr>
+<td>Page height</td>
+<td>778 px against a 390 px viewport</td>
+</tr>
+<tr>
+<td>Answer position</td>
+<td>553 px down, two swipes past the button that produced it</td>
+</tr>
+</tbody></table>
+<p>Turning the phone sideways makes the app narrower, not wider. The 480 px cap
+that makes portrait comfortable is the same cap that ruins landscape: no pixel
+of the extra width can be used, so the extra height is spent instead.</p>
+<p>Landscape is not a nicety here. The app is used crouched next to a running
+engine, which is the position in which a phone is held sideways, and the result
+waveform drew 132 marks across roughly 360 px — one every 2.7 px, which renders
+as a solid fence. Those marks exist so a person can catch a doubled or halved
+beat, and at portrait width they cannot. Width is what makes the evidence
+readable.</p>
+<p>The research, the seven reference apps and the three layouts considered are in
+<code>inspiration.md</code>. Layout A, split columns, was chosen on 2026-09-10 and drawn at
+eleven screen sizes in the canvas under <code>canvas/</code>.</p>
+<h2>User stories</h2>
+<ol>
+<li>As a rider crouched over an engine with the phone sideways, I read the number
+without scrolling.</li>
+<li>As a rider on a cheap 360×640 phone, everything still fits without scrolling.</li>
+<li>As a rider working in daylight, the app is readable in a light theme; at
+night it is dark without my asking.</li>
+<li>As an Urdu reader, the layout reads right to left, while the waveform and the
+numbers still read left to right.</li>
+<li>As a rider who doubts the reading, I can see the individual marks well enough
+to count them.</li>
+<li>As a rider who just wants the number, the screen after Calculate leads with
+the number rather than with the controls that produced it.</li>
+</ol>
+<h2>Scope</h2>
+<h3>In</h3>
+<ul>
+<li><strong>Layout A, split columns.</strong> A control column (source buttons, status, the
+answer, expected range, Calculate) beside a signal column (waveform,
+transport, crop numbers).</li>
+<li><strong>The switch is width, not orientation.</strong> At 600 px and wider the screen
+splits; below it the current stack stays. One rule covers small-phone
+landscape at 640, tablet portrait at 820, and laptops.</li>
+<li><strong>One waveform.</strong> Today the crop canvas and the result canvas draw the same
+ten seconds twice. Calculate leaves the marks on the crop canvas instead, and
+snaps the detail range to the analysed window so the marks are drawn at the
+window&#39;s own scale rather than smeared across a 30 s view. Dragging a crop
+handle outward zooms the detail range back out, so the surrounding audio is
+always one gesture away. Decided 2026-09-10.</li>
+<li><strong>Light theme.</strong> The existing <code>index.css</code> variable block inverted onto the
+light token set. Dark is the default: an OS expressing no preference gets
+dark, which is a change from today. A stored override in settings beats the
+OS in both directions.</li>
+<li><strong>Demotion after Calculate, not hiding.</strong> Open and Record shrink to icons but
+stay; play and the crop numbers stay; expected range stays collapsed and one
+tap away; the number is never hidden and never below the fold.</li>
+<li><strong>Portrait detail waveform inset 8 px on each side</strong>, so both crop handles
+have grabbing room clear of the screen edge.</li>
+<li><strong>Right-to-left for Urdu.</strong> The columns mirror wholesale. Layout expressed in
+logical properties, not <code>left</code> and <code>right</code>. Digits, times and the waveform
+stay left to right.</li>
+<li><strong>A small settings surface</strong>, holding the language picker and a light/dark
+override. Neither belongs in the measure-an-engine flow, and both need
+somewhere to live. Decided 2026-09-10. It is a surface, not a settings
+system: two controls, reachable in one tap, closing back to the app.</li>
+<li><strong><code>LONG_CLIP_S</code> derived from the measured canvas width</strong> rather than the
+constant 30, which assumed a 360 px canvas. This requires lifting the width
+measurement out of <code>WaveformCanvas</code>.</li>
+<li><strong>Tablet and laptop stop growing.</strong> Above phone size the working block is
+capped and centred rather than stretched; the extra height goes to the
+long-clip overview strip, not to a taller waveform.</li>
+</ul>
+<h3>Out</h3>
+<ul>
+<li>Any new feature. No Hz readout beside the RPM, no gauge or dial, no 2-stroke
+toggle, no saving, naming or sharing a result. All backlog.</li>
+<li>A CSS framework, a component library, an icon package, or any new dependency.</li>
+<li>A motion or animation system. A layout that changes on rotation may transition,
+nothing else.</li>
+<li>A desktop-specific design. Wide screens get the split layout and no more.</li>
+<li>Bundling a Nastaliq or Naskh font for Urdu. The platform font is used.</li>
+<li>Any change to the DSP, the analysis contract, the crop interaction, or what
+Calculate computes.</li>
+</ul>
+<h2>Acceptance criteria</h2>
+<ol>
+<li>At each of 360×640, 390×844, 430×932, 820×1180 and all four rotations, with a
+10 s window loaded and a result shown, nothing scrolls and nothing is clipped.</li>
+<li>At 844×390 the RPM number is fully visible without scrolling, at the moment
+the result arrives.</li>
+<li>The layout splits at 600 px wide and stacks at 599 px, verified at both.</li>
+<li>At 844×390 the waveform canvas is at least 500 px wide, so a 10 s window at
+13 pulses a second puts the marks at least 3.4 px apart, up from 2.7 today.</li>
+<li>Every colour in both themes comes from the <code>index.css</code> token set. Muted text
+on the background meets 4.5:1 in both, and the record dot and the error red
+are legible on the light ground.</li>
+<li>An OS reporting no colour-scheme preference gets the dark theme, and a
+stored override in settings beats the OS in both directions and survives a
+reload.</li>
+<li>With Urdu selected the columns mirror, and the digits, the time readouts and
+the waveform still run left to right.</li>
+<li><code>LONG_CLIP_S</code> is gone. The overview strip appears when the clip is longer
+than the measured canvas width divided by 12 px per second, which reproduces
+30 s at a 360 px canvas.</li>
+<li>The language picker and the theme override are both in the settings surface
+and neither appears in the measure-an-engine flow.
+9a. Calculate on a clip longer than the detail range snaps the detail view to
+the analysed window, and dragging a crop handle outward restores a wider
+view without a second control.</li>
+<li>In portrait the detail waveform has 8 px clear on each side.</li>
+<li><code>npm test</code>, <code>npm run lint</code> and <code>npm run build</code> pass, and a Playwright pass
+exercises upload, crop drag, play and Calculate at the eight sizes in
+criterion 1, in both themes.</li>
+</ol>
+<h2>Non-goals and constraints</h2>
+<ul>
+<li>Plain hand-written CSS, as today. The layout is flex and grid with <code>gap</code>; no
+utility classes, no preprocessor.</li>
+<li>No new state. The redesign rearranges what <code>useAudioInput</code> and <code>useAnalysis</code>
+already hold.</li>
+<li>The canvases keep reading their colours from the CSS variables through
+<code>usePalette</code>, so a theme change costs no drawing code.</li>
+<li>Every string already comes from the i18n layer. Any new label is a new key in
+all seventeen languages, so prefer an icon.</li>
+<li>Hit targets stay at 44 px or larger, including the demoted icon buttons.</li>
+<li>Status strings mix scripts: the loaded line is an Urdu sentence around a Latin
+file name and duration. The Latin run needs its own <code>dir=&quot;ltr&quot;</code>, or truncation
+in a right-to-left box eats the wrong end of it.</li>
+</ul>
+<h2>Decided</h2>
+<ul>
+<li><strong>Calculate snaps the detail range to the analysed window</strong>, and an outward
+drag on a crop handle zooms back out. This is what lets the crop canvas and
+the result canvas become one, and it is why <code>ResultWaveform</code>&#39;s reason for
+existing separately no longer applies.</li>
+<li><strong>The app gets a small settings surface</strong> for the language picker and the
+light/dark override.</li>
+</ul>
+<h2>Open questions</h2>
+<ul>
+<li><strong>Does Calculate stand down after it has run?</strong> Its result is on screen and it
+goes stale the moment the crop moves. Hiding it until an input changes is the
+one genuine hiding candidate; leaving it is simpler.</li>
+<li><strong>How narrow can the control column get before the labels have to go?</strong> The
+canvas drops them below 240 px, which is what a 640 px landscape screen
+forces. An unlabelled upload icon may not be clear enough, in which case the
+column takes a 240 px minimum and the waveform gives up the width.</li>
+<li><strong>Where do the expected-range fields live in the split layout?</strong> Drawn as a
+collapsed row in the control column, which is the smallest change. Opening
+them there costs the answer its space.</li>
+</ul>
+
+</div></body></html>

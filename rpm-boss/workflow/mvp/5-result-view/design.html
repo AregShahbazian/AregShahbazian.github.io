@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design — Result view</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">5-result-view</a> / design.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <b>design</b> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-result-view
+feature: 5-result-view
+branch: feat/5-result-view
+status: draft
+created: 2026-09-10</h2>
+<h1>Design — Result view</h1>
+<h2>0. What was measured first</h2>
+<p>The PRD&#39;s three open questions all turn on how much room there is, so the room
+was measured before anything was decided. Laptop Chrome, the current screen
+with <code>all-samples.m4a</code> loaded, development-only controls subtracted:</p>
+<table>
+<thead>
+<tr>
+<th>part</th>
+<th>height</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>title, source buttons, status</td>
+<td>101 px</td>
+</tr>
+<tr>
+<td>waveform block (overview + detail + readout)</td>
+<td>222 px</td>
+</tr>
+<tr>
+<td>player</td>
+<td>48 px</td>
+</tr>
+<tr>
+<td>expected range, collapsed</td>
+<td>43 px</td>
+</tr>
+<tr>
+<td>Calculate</td>
+<td>48 px</td>
+</tr>
+<tr>
+<td>result line</td>
+<td>24 px</td>
+</tr>
+<tr>
+<td>gaps and page padding</td>
+<td>124 px</td>
+</tr>
+<tr>
+<td><strong>total, production build</strong></td>
+<td><strong>610 px</strong></td>
+</tr>
+</tbody></table>
+<p>A phone at 740 CSS px tall has roughly 600 to 640 left after browser chrome.
+So the screen is already full before this phase adds anything.</p>
+<h3>0.1 The result goes below, and the page scrolls</h3>
+<p><strong>The PRD&#39;s third acceptance criterion cannot hold as written.</strong> A number and a
+marked waveform are about 170 px together; nothing short of hiding the crop
+makes that fit under 610 px.</p>
+<p>Three ways out were considered.</p>
+<ul>
+<li><strong>Marks drawn into the existing crop canvas</strong>, costing no height at all. It
+works for short clips and fails for long ones: on a 67 s clip the detail view
+spans 30 s, so a 10 s window is a third of the width and 130 marks land
+0.85 px apart, a smear.</li>
+<li><strong>The detail canvas swaps into a result mode</strong>, same height, returning to
+crop mode on a tap. Fits, but introduces a mode, hides the crop behind a
+gesture, and makes &quot;move the crop and try again&quot; cost two.</li>
+<li><strong>The result sits below Calculate and the page scrolls</strong>, with the result
+scrolled into view when it arrives.</li>
+</ul>
+<p><strong>Decision: the third.</strong> No modes, no hidden state, the crop stays where it
+was, and the number and its marks are adjacent so they are on screen together
+after the scroll. What is lost is seeing the crop at the same time as the
+answer, which is not needed while reading it.</p>
+<p>AC 3 is amended to: the number and the marked waveform are visible together
+without further scrolling once the result arrives.</p>
+<h3>0.2 Marks are ticks, and all of them are drawn</h3>
+<p>Ten seconds at 13 pulses per second is 130 marks. At 448 px of canvas that is
+one every 3.4 px, and at 360 px phone width one every 2.5 px.</p>
+<p>Full-height lines at that spacing would erase the waveform. <strong>Ticks along the
+top and bottom edges, 10 px tall and 1 px wide</strong>, leave the middle of the trace
+clear while still showing the pattern.</p>
+<p><strong>Every mark is drawn, none are thinned.</strong> Regularity is the whole point: a
+missed combustion or a doubled one shows up as a gap or a crowd in an otherwise
+even comb, and thinning would hide exactly that. Where the comb is too dense to
+count, the count is printed beside the number instead.</p>
+<h3>0.3 The octave note is not dismissable</h3>
+<p>One line, and it is the difference between a measured figure and a corrected
+one. Nothing to gain by letting it be hidden.</p>
+<h2>1. Shape</h2>
+<pre><code>src/ui/
+  ResultView.tsx        the number, the note, the count, the failure message
+  ResultWaveform.tsx    canvas: the analysed window with combustion ticks
+</code></pre>
+<p><code>ResultLine.tsx</code> from phase 4 is replaced by <code>ResultView.tsx</code> and deleted. It
+was scaffolding and said so.</p>
+<p>No new state. <code>useAnalysis</code> already holds everything, and already clears on a
+clip or window change, so the marks clear with the number for free.</p>
+<h2>2. The number</h2>
+<p><code>Math.round(rpm)</code>, in a large plain figure with <code>rpm</code> beneath it in small
+muted text, so the unit never competes with the value.</p>
+<p>Tabular numerals and a fixed minimum width of four digits, so 998 and 1450 do
+not shift the layout between runs. This is why the phase 3 <code>.mono</code> class exists;
+it is reused rather than duplicated.</p>
+<h2>3. The marked waveform</h2>
+<p>A canvas of its own, 96 px tall, drawn once per result:</p>
+<ol>
+<li><code>computePeaks</code> over the window&#39;s samples, the same function the crop
+waveform uses. The window clip comes from <code>getWindowClip()</code>.</li>
+<li>The trace in the muted colour, min to max per column, as phase 3 draws it.</li>
+<li>A tick at the top and bottom edge for each <code>pulseTimesS</code>, in the accent
+colour, positioned <code>t / windowLength * width</code>.</li>
+</ol>
+<p>Not interactive. No handles, no crop shading, no position line. It shows one
+thing: where the app thinks the combustions were.</p>
+<p>Colours come from the CSS variables through the same read-once-per-scheme
+pattern as <code>WaveformCanvas</code>, so light and dark both work and no frame pays for
+<code>getComputedStyle</code>.</p>
+<h2>4. Failure</h2>
+<p>The message takes the number&#39;s place, in the error colour, at ordinary text
+size rather than display size: it is a sentence, not a figure. The waveform is
+not drawn, since there is nothing to mark. Everything above stays live.</p>
+<h2>5. Scrolling into view</h2>
+<p>When the status becomes <code>done</code> or <code>failed</code>, the result element is scrolled into
+view with <code>scrollIntoView({ block: &#39;nearest&#39;, behavior: &#39;smooth&#39; })</code>.
+<code>nearest</code> rather than <code>center</code> so a screen tall enough to show everything does
+not scroll at all.</p>
+<h2>6. Tests</h2>
+<ul>
+<li><code>resultWaveform.test.ts</code> — the pure part: <code>tickX(timeS, windowS, width)</code>, and
+that a tick lands within a pixel of where the pulse is in the window. The
+canvas drawing itself is not unit tested; that is what the Playwright pass is
+for.</li>
+<li><code>analysis.fixtures.test.ts</code> gains an assertion that the mark count is within
+5 % of <code>pulsesPerS * durationS</code> for every fixture, which is AC 1 without a
+browser.</li>
+</ul>
+<h2>7. Out</h2>
+<p>No animation on the number. No sharing. No saving. No confidence figure. The
+tachometer gauge stays in the backlog where phase 1 put it.</p>
+
+</div></body></html>

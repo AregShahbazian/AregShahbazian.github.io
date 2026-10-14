@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RPM Boss 1.3 (versionCode 4) - what changed</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="./index.html">workflow docs</a> / release-1.3.md</nav>
+<h1>RPM Boss 1.3 (versionCode 4) - what changed</h1>
+<p>Everything since <code>acd7a52</code>, the 1.2 build (versionCode 3). 41 commits, four
+branches: <code>rb-live-tacho</code>, <code>rb-two-stroke</code>, <code>rb-dial-limits</code>, <code>rb-audio-input</code>.</p>
+<p>Source for the listing rewrite and the release notes. Written from the commit
+messages, not from the code.</p>
+<h2>The headline: live tachometer mode</h2>
+<p>The app no longer has to record before it can tell you anything. Press Start
+and it listens continuously, showing rpm on a drawn tachometer dial with a
+needle that eases between readings, the figure in numerals under it, and a live
+waveform of the last quarter second below that.</p>
+<ul>
+<li>Reads five times a second. A window that arrives while the previous one is
+still being analysed is dropped rather than queued, so it cannot fall behind.</li>
+<li>Nothing is recorded. The audio passes through a ring buffer and is gone; the
+wording in all seventeen languages says &quot;listen&quot;, never &quot;record&quot;.</li>
+<li>When the engine stops or the room goes quiet the needle returns to zero. An
+earlier version held the last reading and it was judged a worse lie than a
+needle at rest.</li>
+<li>The screen is held awake while listening, through the Screen Wake Lock API.
+No new permission, no native code.</li>
+<li>A refused microphone shows the same error line the recorder uses.</li>
+</ul>
+<p>Measured on the phone and the laptop: the device keeps up with room to spare,
+about 60 ms of analysis per 200 ms tick.</p>
+<h2>Two-stroke engines, and the whole rpm range</h2>
+<p>The stroke setting now reaches the analysis instead of only being stored. A
+two-stroke fires twice as fast at the same rpm, so the smoothing and the rates
+searched are doubled with it rather than the answer being multiplied after the
+fact.</p>
+<p>Getting there meant rewriting the peak picker, which used to take the tallest
+correlation peak. Near the top of the dial that let noise choose between the
+true period and two or three times it: a two-stroke at 9,000 would read 3,000,
+then 6,000, then 4,500. It now starts from the tallest genuine peak and tries
+every shorter peak it is a whole multiple of, accepting the first whose comb
+holds up.</p>
+<p>Result, measured on synthetic engine renders at 48 kHz: both strokes read back
+within 1.1 percent from 600 to 12,000 rpm. Live in the browser, within 0.5
+percent across the same range.</p>
+<p>The floor came down too, from about 960 rpm to 600, which brings in a big
+single at 900, a mistuned bike hunting at 650, and a generator running at half
+speed.</p>
+<p>Still one cylinder only. The cylinder row in settings is shown answered and
+greyed out for that reason.</p>
+<h2>The dial is yours to set</h2>
+<p>A 0 to 12,000 face suits the small singles the app was built for and wastes
+half its sweep on a bike that never sees 8,000. Where the numbers stop and
+where they turn red are both settings now.</p>
+<ul>
+<li>The top of the dial can go no lower than 9,000, because a gauge whose stop
+sits inside the working range is a warning light rather than an instrument.</li>
+<li>The redline can come down to 600 and can never sit past the end of the dial,
+so shrinking the face brings the redline with it.</li>
+<li>A reading past the end pins the needle at the stop and prints the real figure
+underneath, which is what a tachometer does.</li>
+<li>This is the drawing only. What the analysis can reach is unchanged, so a
+smaller face is not a deafer app.</li>
+<li>Reset puts needle movement, the dial top and the redline back to the shipped
+defaults, and touches nothing else. Language, theme and engine are not the
+tachometer&#39;s to reset.</li>
+</ul>
+<h2>Settings, reorganised</h2>
+<p>Stacked radio buttons became rows of segmented tab buttons, so every option is
+visible at once. Two rows about the motorcycle sit between theme and the
+tachometer section: stroke, and cylinder count.</p>
+<h2>Recording, improved along the way</h2>
+<ul>
+<li>A recording draws itself while it runs. Ten seconds of holding a phone at an
+engine with no idea whether the microphone is hearing anything was a strange
+thing to ask.</li>
+<li>Cancel unloads a clip and puts the screen back to empty.</li>
+<li>Download saves a recording, as 16-bit PCM WAV. On Android it goes through the
+share sheet, so Files and Drive are both reachable. Offered for recordings
+only, since a file that came off the device is already on it.</li>
+<li>The crop handles are twice the size and can be grabbed from 48 px away, which
+is about what a fingertip actually covers.</li>
+<li>An error is now a line above the status rather than replacing it, so a failed
+recording no longer leaves an open clip with nothing describing it.</li>
+</ul>
+<h2>Polish</h2>
+<p>Start is green, twice the size, and says a word instead of showing an icon. The
+tap highlight no longer squares off rounded buttons. The source row is three
+icons and a label. The stage keeps its width when live mode starts. Both red
+stop buttons finally say they can be pressed.</p>
+<h2>What did not change</h2>
+<ul>
+<li><code>RECORD_AUDIO</code> is still the only permission. No INTERNET, so the claim that
+nothing can leave the phone is still verifiable from the bundle.</li>
+<li>No ads, no accounts, no analytics, works offline.</li>
+<li>Record, crop and Calculate is untouched and still there. Live mode is beside
+it, not instead of it.</li>
+</ul>
+<h2>What this means for the store listing</h2>
+<p>The current full description is now wrong in three places:</p>
+<ol>
+<li>It describes record, crop, Calculate as the only way to use the app. Live
+mode is the first thing on screen and should lead.</li>
+<li>It says &quot;a single-cylinder four-stroke at idle&quot;. Two-stroke works, and the
+range is the whole dial rather than idle.</li>
+<li>WHAT IT IS NOT says a revving engine gives nothing worth trusting. Revving
+reads fine if it is steady. The honest caveats now are: one cylinder, a
+steady engine, and not too much background noise.</li>
+</ol>
+<p>Do not name the test bench software in anything public.</p>
+<p>Release notes should be short and plain: live tachometer, two-stroke support,
+adjustable dial.</p>
+
+</div></body></html>

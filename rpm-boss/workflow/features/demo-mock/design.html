@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design — A demo build with a simulated engine</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">features</a> / <a href="index.html">demo-mock</a> / design.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <b>design</b> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-demo-mock
+feature: demo-mock
+branch: feat/demo-mock
+stage: design
+created: 2026-09-15</h2>
+<h1>Design — A demo build with a simulated engine</h1>
+<h2>The shape of it</h2>
+<p>Five pieces, and only the third is new work in any interesting sense.</p>
+<ol>
+<li>A build flag, <code>VITE_MOCK</code>, exactly parallel to <code>VITE_SAMPLES</code>.</li>
+<li><code>revbench/engine-processor.js</code>, copied in unchanged as a second worklet.</li>
+<li>A mock capture that runs the synthesiser and the existing capture worklet in
+one <code>AudioContext</code>, taps the signal before the speakers, and hands chunks to
+the same <code>onChunk</code> the microphone path uses.</li>
+<li>A throttle: an <code>AudioParam</code> under a slider, and the bounds arithmetic that
+keeps the slider inside what the app can honestly read.</li>
+<li>The word &quot;simulated&quot;, on screen, in seventeen languages.</li>
+</ol>
+<p>Naming: <strong>mock</strong> throughout the code — the flag, the module, the <code>LiveSource</code>,
+the existing <code>startMockCapture</code> — and <strong>simulated</strong> in every string a user
+reads. The internal word says what it is to the person building it; the
+user-facing word says what it is to the person looking at it. Neither has to
+become the other.</p>
+<h2>The flag</h2>
+<p><code>vite.config.ts</code> gains a second constant beside the samples one, computed the
+same way and for the same reasons:</p>
+<pre><code class="language-ts">const enabled = process.env.VITE_SAMPLES === &#39;1&#39;
+const mockEnabled = process.env.VITE_MOCK === &#39;1&#39;
+// …
+define: {__SAMPLES__: JSON.stringify(enabled), __MOCK__: JSON.stringify(mockEnabled)},
+</code></pre>
+<p>Off unless asked for, in every mode. <strong>This changed during implementation</strong>, and
+it took the samples with it: both flags used to default on for <code>command === &#39;serve&#39;</code>, which made <code>npm run dev</code> a different app from the one that ships. One
+rule reads better than two and is worth the lost convenience — the convenience
+is now a flag on the script, which is where it belongs. <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/globals.d.ts"><code>src/globals.d.ts</code></a>
+declares <code>__MOCK__: boolean</code> beside <code>__SAMPLES__</code>.</p>
+<p><strong>Why not <code>FEATURES.mockLive</code>.</strong> That constant is edited by hand and has to be
+edited back. It has survived so far because nothing outside a working copy ever
+wanted it on; the moment one build wants it on and another must not have it,
+&quot;remember to flip it back before the release&quot; is the only thing standing
+between the demo and the Play store. A flag the build sets cannot be forgotten.
+This is the same argument <code>samples/index.ts</code> already makes about itself, and
+the reason <code>SAMPLES_ENABLED</code> is deliberately not in <code>FEATURES</code>.</p>
+<p><strong>The two flags stay independent.</strong> <code>VITE_SAMPLES</code> keeps its meaning and its
+default. The only place they are both set is <code>.github/workflows/deploy.yml</code>,
+which is the one build that is a demo:</p>
+<pre><code class="language-yaml">- run: npm run build
+  env:
+    VITE_SAMPLES: &#39;1&#39;
+    VITE_MOCK: &#39;1&#39;
+</code></pre>
+<p><code>apk.sh</code> and <code>install.sh</code> gain <code>--demo</code>, which sets both flags: an APK to hand
+someone who has no motorcycle, and the way the maintainer tests the demo on a
+phone. <code>aab.sh</code> deliberately does <strong>not</strong> — the bundle is what goes to Play, and
+no release on the store carries a simulated engine. <code>--samples</code> keeps meaning
+what it means everywhere.</p>
+<p><code>dev.sh</code> carries the same vocabulary: <code>--samples</code>, <code>--demo</code>, and a <code>--build</code>
+that builds and serves <code>dist/</code> rather than the source. So one flag, spelled the
+same way, turns the demo on wherever the app is started from — and nothing has
+to be exported by hand.</p>
+<h2>Keeping it out of the other builds</h2>
+<p><code>__MOCK__</code> is a compile-time constant, so <code>if (!__MOCK__) return</code> is a dead
+branch and everything after it is dead code. That handles the button, the
+slider and the badge. The synthesiser needs one step more, because
+<code>new URL(&#39;./engine-worklet.js&#39;, import.meta.url)</code> emits an asset for any module
+in the graph, whether or not the code that reaches it survives.</p>
+<p>So the mock is two modules:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/mock.ts"><code>src/live/mock.ts</code></a></td>
+<td>statically imported. <code>MOCK_ENABLED</code>, the bounds arithmetic, and a <code>startMockCapture</code> that returns a <code>LiveCapture</code> synchronously. Nothing in it names the worklet.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/mock-engine.ts"><code>src/live/mock-engine.ts</code></a></td>
+<td><code>import()</code>ed from inside <code>if (__MOCK__)</code>, and the only module that holds the worklet URL and the audio graph.</td>
+</tr>
+</tbody></table>
+<p>With the constant false, the dynamic import sits in an unreachable branch,
+Rollup removes it, <code>mock-engine.ts</code> never enters the graph, and no worklet asset
+is emitted. <strong>This is an assumption about the bundler and it is verified by a
+task, not by reasoning</strong>: task 12 greps the built assets. If it turns out Vite
+keeps the chunk anyway, the fallback is an alias in <code>vite.config.ts</code> pointing
+<code>./mock-engine</code> at an empty stub when the flag is off — more machinery, same
+result, and only if measurement says it is needed.</p>
+<p><strong>Measured, 2026-09-15: it drops out.</strong> The fallback was not needed. Two things
+the check turned up that the reasoning above did not predict:</p>
+<ul>
+<li>A worklet under Vite&#39;s 4 KB inline limit is not emitted as a file at all — it
+is a <code>data:text/javascript;base64</code> URL inside the main chunk, which is what
+happens to <code>capture-worklet.js</code> (608 bytes). So &quot;no asset&quot; has two shapes, and
+looking only at <code>dist/assets/</code> would have proved nothing. <code>engine-worklet.js</code>
+is 4,510 bytes with its header note and lands over the line as a real file,
+<code>assets/engine-worklet-&lt;hash&gt;.js</code>, present in the demo build and absent from
+the bare one — and no base64 blob in the bare build decodes to it either.</li>
+<li>A React branch is only dead if the <em>constant</em> says so. <code>{simulated &amp;&amp; &lt;Slider/&gt;}</code>
+keyed on <code>live.source === &#39;mock&#39;</code> is unreachable in a bare build but not
+statically so, and it kept the whole <code>Slider</code>, its emotion CSS and the extra
+grid row in the bundle. <code>const simulated = MOCK_ENABLED &amp;&amp; live.source === &#39;mock&#39;</code>
+is what makes it go: redundant to the running app, load-bearing to the
+bundler.</li>
+</ul>
+<h2>The audio graph</h2>
+<p>One <code>AudioContext</code>, made in the click handler that starts the mock, so the
+autoplay policy is satisfied by the gesture that asked for it.</p>
+<pre><code>EngineWorklet ─┬─→ GainNode(level) ─→ destination     the visitor hears it
+               └─→ CaptureWorklet ─→ batcher(ctx.sampleRate) ─→ onChunk
+                        └─→ GainNode(0) ─→ destination
+</code></pre>
+<p>Three things follow from drawing it this way rather than any other way:</p>
+<ul>
+<li><strong>The tap is before the speakers.</strong> Muting the device, pulling the
+headphones, or a phone whose ringer is down changes what the visitor hears
+and nothing about what the dial reads. That is the acceptance criterion about
+the muted device, and it is a property of the graph rather than something to
+be careful about.</li>
+<li><strong>One clock.</strong> The sound and the samples are the same samples, generated
+once, in the same render quantum. The old mock&#39;s <code>setInterval</code> had to
+reconcile itself against <code>performance.now()</code> precisely because it had a
+second clock (<code>chunksOwed</code> exists for that reason, and goes with it).</li>
+<li><strong>The capture node still needs its muted sink.</strong> A worklet whose output
+reaches nothing is rendered with silence at its input. The mic path already
+does this and the comment there explains it; the mock inherits the same two
+lines.</li>
+</ul>
+<p><code>level</code> is the worklet&#39;s own <code>AudioParam</code>, left at its default 0.5, and the
+gain node at 1. One number sets both what is heard and what is measured, which
+is what makes the muted-device property true. The DSP normalises, so the exact
+figure is a comfort decision and not an accuracy one.</p>
+<h2>Reusing the microphone&#39;s tail</h2>
+<p><code>liveWorklet</code> in <code>stream.ts</code> is, after <code>getUserMedia</code> returns, exactly the graph
+above minus the speakers: a context, the capture worklet, a batcher, a muted
+sink. That part comes out as its own function and both callers use it:</p>
+<pre><code class="language-ts">export interface CaptureTail {
+  /** The node the audio comes from: a MediaStreamSource, or the synthesiser. */
+  source: AudioNode
+  context: AudioContext
+}
+
+export async function captureFrom(
+  {context, source}: CaptureTail,
+  {onChunk, onOpen, onError}: LiveOptions,
+  label: string,
+): Promise&lt;void&gt;
+</code></pre>
+<p>The mock builds its own context (it needs one before the source node exists
+anyway) and passes the engine node in. The microphone keeps its
+<code>getUserMedia</code>, its error mapping and its track cleanup, none of which the mock
+has any use for — no permission is asked for and there is no device to release.</p>
+<p>This is a refactor of working code on the path the whole feature depends on, so
+it lands as its own task with the microphone re-tested before anything is built
+on top of it.</p>
+<h2>The synthesiser</h2>
+<p><code>engine-processor.js</code> is copied to <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/engine-worklet.js"><code>src/live/engine-worklet.js</code></a> <strong>byte for
+byte</strong>, and the copy is the point. Its constants — the 120/180 Hz exhaust ring,
+the 1000 Hz noise corner, the 7% amplitude jitter, the 1.2% period jitter — are
+measured limits, not taste: <code>revbench/README.md</code> records that above roughly 10%
+amplitude spread the autocorrelation starts preferring two or three periods to
+one. Editing it here would mean re-earning numbers that were already earned,
+against a sweep that lives in the other repo. It is loaded the way the capture
+worklet is loaded, by <code>new URL(…, import.meta.url)</code>, because that is what
+<code>addModule</code> takes.</p>
+<p>Two divergences are accepted and written into the file&#39;s header comment: the
+copy is the app&#39;s, <code>revbench</code> remains the place the sweep runs, and if one
+changes the other does not follow automatically. The alternative — a shared
+package for one 98-line file — costs more than the duplication it removes.</p>
+<p><code>oxlint</code> runs over <code>src</code>, so the copy must pass it. Expect nothing: it is the
+same dialect as <code>capture-worklet.js</code>, which already sits there.</p>
+<h2>Driving it</h2>
+<p>The rpm and the stroke reach the running worklet as <code>AudioParam</code> values, not as
+messages:</p>
+<pre><code class="language-ts">node.parameters.get(&#39;rpm&#39;).value = 1500
+node.parameters.get(&#39;revsPerPulse&#39;).value = revs
+</code></pre>
+<p>Both are <code>k-rate</code>, so a change takes effect at the next render quantum — about
+3 ms — and the worklet reads them at the top of <code>process</code> with no protocol, no
+message queue and no chance of a dropped update. The processor already jitters
+each period around whatever <code>rpm</code> says, so a change mid-cycle produces the next
+combustion at the new spacing. There is no gap in the sound, which is
+requirement 10 satisfied by the mechanism rather than by care.</p>
+<p><code>LiveCapture</code> gains one optional method:</p>
+<pre><code class="language-ts">export interface LiveCapture {
+  stop: () =&gt; void
+  /** The mock only: what about the engine should change, from now on. */
+  tune?: (engine: Partial&lt;MockEngine&gt;) =&gt; void
+}
+</code></pre>
+<p>Optional, because the microphone cannot be tuned and should not have to say so
+in a no-op. <strong>Partial</strong>, which the first draft was not: the two callers each
+know one half — the slider sets a speed, the settings set a stroke — and making
+each carry the other&#39;s value meant <code>useLive</code> holding a ref to remember the
+current rpm. The engine&#39;s handle already remembers it, so it is the one that
+merges. That removed the ref, and with it two lint complaints about a hook
+modifying state an effect depends on. <code>startMockCapture</code>&#39;s wrapper remembers the last <code>tune</code> it was given
+before the graph opened and applies it on open, so a slider dragged during the
+half-second the context takes to start is not lost.</p>
+<p><code>useLive</code> already holds the stroke in a ref and updates it on change; that
+effect gains one line, <code>capture.current?.tune?.(…)</code>, so a rider who switches to
+two-stroke mid-demo gets the engine switched with the analysis and the dial
+never moves. That is requirement 5 — the same speed on both settings — and it
+is why the demo follows the setting instead of carrying its own.</p>
+<h2>What the slider may reach</h2>
+<p>Three bounds, and the tightest wins.</p>
+<p><strong>The floor.</strong> <code>FLOOR_RPM</code> in <code>ui/dial.ts</code> is already <code>MIN_RATE * 60 * REVS_PER_PULSE</code> = 600 rpm, the bottom of what the estimator searches. Below it
+the app has nothing to say, so the slider does not go there.</p>
+<p><strong>The dial.</strong> The visitor&#39;s own <code>maxRpm</code> setting, which may be as low as 9,000.
+A demo that drives the needle onto the stop is showing a broken instrument.</p>
+<p><strong>The truth.</strong> The top of what the synthesiser and the analysis agree on. In
+principle this is <code>MAX_RPM</code> for both strokes: <code>rateRangeFor</code> scales the search
+by <code>rateScale(revsPerPulse)</code>, so 12,000 rpm is 100 combustions/s on a
+four-stroke and 200 on a two-stroke, and the app searches to each. In practice
+what has been <em>measured</em> is narrower, and it was measured against the Python
+baseline&#39;s fixed four-stroke range rather than the app&#39;s scaled one:
+revbench reports clean to 11,700 rpm four-stroke and 5,850 two-stroke, and that
+second figure is 97.5 combustions/s — the baseline&#39;s ceiling, not the app&#39;s.</p>
+<p>So the top was a number to be measured, not argued. <strong>Measured 2026-09-15</strong>
+(<code>features/demo-mock/evidence/</code>): the sweep was run with the search range scaled
+to the engine rendered — which is what the app does and what revbench&#39;s own
+<code>check.py</code> does not, and the whole reason its two-stroke table stops at 5,850.
+Every speed from 600 to 12,000 reads back inside 1.1% on both strokes. So the
+ceiling is <code>MAX_RPM</code> for either engine, the <code>Record</code> collapses, and the bounds
+take one argument:</p>
+<pre><code class="language-ts">export const MOCK_MAX_RPM = MAX_RPM
+export const mockRpmBounds = (maxRpm: number) =&gt; ({
+  min: FLOOR_RPM,
+  max: Math.min(maxRpm, MOCK_MAX_RPM),
+  step: 100,
+})
+</code></pre>
+<p>Worth keeping from the numbers: on a two-stroke the confidence falls from 1.18
+at the floor to 0.63 at 12,000, where the combustions arrive 200 a second. Still
+clear of <code>MIN_CONFIDENCE</code> (0.45), but that is the figure that would give way
+first if the envelope or the search were ever retuned.</p>
+<p><code>step: 100</code> is a drag resolution, not a precision claim.</p>
+<h2>Settling</h2>
+<p>The window is 2 s and the reading is the median of five, so a slider moved from
+one end to the other takes about a second and a half to be told the truth
+about, and the windows in between contain a sweep rather than a speed. This is
+correct behaviour and it is also good demo behaviour — it is what the needle
+does when a real engine is blipped — but it means &quot;the reading agrees with the
+setting&quot; is a statement about a settled reading. The review checklist says so,
+and the acceptance criterion is read that way.</p>
+<p>Nothing is done to hide the transit. Freezing the needle while the slider moves
+would be the app lying about the one thing this feature exists to show.</p>
+<h2>State and the screen</h2>
+<p><code>LiveState</code> gains <code>source?: LiveSource</code>, set when live mode starts. It is what
+the badge and the slider key off; <code>status === &#39;listening&#39;</code> alone cannot tell
+the two sources apart, and the badge must never appear over a microphone
+reading (requirement 18).</p>
+<p><code>useLive</code> returns one more thing, <code>tune</code>, bound to the capture ref. The hook&#39;s
+shape is otherwise unchanged.</p>
+<p><code>LiveStage</code> grows a row. The stage is <code>grid-rows-[4fr_1fr]</code> today — dial and
+figure over the strip that holds either the start buttons or the scope. With
+the mock running it becomes <code>4fr 1fr auto</code>, the new <code>auto</code> row holding the
+slider. An <code>auto</code> row costs nothing when it is empty, which is every other
+state of the screen.</p>
+<ul>
+<li><strong>The badge</strong> sits over the dial, not under it: absolutely positioned at the
+top of the tacho&#39;s box, centred, in the muted colour, the same way
+<code>LiveStats</code> sits over the scope. Over the dial is the only place that makes a
+screenshot of the needle carry the caveat, which is requirement 17&#39;s whole
+point.</li>
+<li><strong>The buttons.</strong> Listen keeps <code>tone=&quot;go&quot;</code> and its oversized word. The mock
+button sits beside it at the default tone — the real thing is the primary
+action even on the demo build — with <code>mdi:flask-outline</code> kept from the
+current mock and a translated label beside it.</li>
+<li><strong>The slider</strong> is <code>kit.tsx</code>&#39;s new <code>Slider</code>: a labelled <code>input type=&quot;range&quot;</code>
+with the set figure beside it, <code>tabular-nums</code>, <code>dir=&quot;ltr&quot;</code> like every other
+number in this app. The label names it as the simulated engine&#39;s speed, so
+the control reads as part of the simulation and not as something acting on
+the app (requirement 19). The set figure and the measured figure are never
+adjacent: one is in the strip at the foot, one is the big number under the
+dial.</li>
+</ul>
+<p><code>Slider</code> is a new kit component rather than a bare input because the app styles
+its own controls and a platform range input in a dark theme is the one control
+that does not follow <code>color-scheme</code> reliably across the WebView and the
+desktop browsers. Thumb and track get explicit colours from the palette.</p>
+<h2>The strings</h2>
+<p>Three keys, in <code>en.ts</code> with their context comments, then in all sixteen
+translation files. <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/i18n.test.ts"><code>test/i18n.test.ts</code></a> already fails a bundle with a missing
+key, so the compiler and the test between them make &quot;all seventeen&quot; checkable
+rather than aspirational.</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>English</th>
+<th>note for translators</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>mockEngine</code></td>
+<td>Simulated engine</td>
+<td>The button that starts live mode from a synthesised engine instead of the microphone.</td>
+</tr>
+<tr>
+<td><code>simulated</code></td>
+<td>Simulated — not a real engine</td>
+<td>Shown over the dial the whole time the synthesised engine is running. It has to be readable as a disclaimer at a glance.</td>
+</tr>
+<tr>
+<td><code>mockSpeed</code></td>
+<td>Simulated speed</td>
+<td>Labels the slider that sets how fast the synthesised engine turns.</td>
+</tr>
+</tbody></table>
+<p><code>rpm</code> stays untranslated, as it already does everywhere else.</p>
+<p>These are user-facing strings in a demo a stranger reads, so they are not the
+place for the app&#39;s internal word. &quot;Mock&quot; appears nowhere on screen.</p>
+<h2>The performance readout</h2>
+<p><code>FEATURES.mockLive</code> currently gates two unrelated things: the mock button and
+the stats readout. It becomes <code>FEATURES.liveStats</code>, gating only the readout,
+and keeps being a hand-edited constant — which is right for it, because unlike
+the demo it is never wanted in <em>any</em> build, only in a working copy for an
+afternoon. <code>useLive</code>&#39;s stats gathering and <code>LiveStats</code>&#39;s header comment follow
+the rename.</p>
+<h2>What goes</h2>
+<ul>
+<li><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/mock.ts"><code>src/live/mock.ts</code></a>&#39;s current body: the sample loop, <code>chunksOwed</code>,
+<code>readLooped</code>, <code>MOCK_SAMPLE</code>/<code>MOCK_FROM_S</code>/<code>MOCK_TO_S</code>. The file keeps its
+name and its job and loses its implementation.</li>
+<li><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/mock.test.ts"><code>test/mock.test.ts</code></a>, which tests exactly those two functions. There is
+nothing equivalent to replace it with: what the new mock does is make an
+audio graph, and the assertions worth making about it are the ones a browser
+makes. The Playwright pass is where this feature is verified.</li>
+<li>The samples dependency. Nothing in the mock path reads <code>SAMPLES_ENABLED</code> any
+more, and <code>MOCK_AVAILABLE</code> in <code>LiveStage</code> becomes <code>MOCK_ENABLED</code>.</li>
+</ul>
+<h2>What a release build actually costs</h2>
+<p><code>npm run build</code> on <code>main</code> is 376,416 bytes; on this branch, 378,447. The
+<strong>+2,031</strong> is entirely the three new strings in seventeen languages, spread
+across the sixteen lazy language chunks (+2,192 — Thai, Hindi, Bengali and
+Armenian cost more per character). <code>index.js</code> itself came out <strong>489 bytes
+smaller</strong> than main&#39;s: the sample-looping mock it replaced — the fetch, the
+decode, <code>chunksOwed</code>, <code>readLooped</code> — was live code in every build, and the
+synthesiser that replaced it is in none.</p>
+<p>The strings are the one part that cannot be flagged away. <code>en.ts</code> is a single
+object and every bundle is typed against it, so a key that exists for the demo
+exists everywhere. Requirement 25 asks for no button, no slider, no synthesiser
+and no asset, and gets all four; the honest footnote is 2 KB of translations.</p>
+<h2>Open questions</h2>
+<ol>
+<li><del><strong>The two-stroke ceiling</strong></del> — answered above, measured.</li>
+<li><del><strong>Does the chunk really drop out</strong></del> — answered above, measured, with two
+findings the reasoning had missed.</li>
+<li><strong>Landscape.</strong> The slider adds a row to a stage that is 360 px tall on a
+phone on its side. If it crowds the scope, the answer is to put the slider
+<em>over</em> the scope the way the badge sits over the dial, not to shrink the
+dial. To be judged when the screen is driven, not now.</li>
+</ol>
+
+</div></body></html>

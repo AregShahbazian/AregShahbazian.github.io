@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recording on Android: what the microphone will and will not give a web page</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../index.html">workflow docs</a> / <a href="index.html">discussions</a> / 2026-09-10-android-microphone-capture.md</nav>
+<h1>Recording on Android: what the microphone will and will not give a web page</h1>
+<p><strong>Date:</strong> 2026-09-10
+<strong>Phase:</strong> 4 (analysis), during the review stage
+<strong>Device:</strong> ASUS AI2302, Android, Brave and Chrome</p>
+<h2>The short version</h2>
+<p>Recording engine sound in a mobile browser needs the voice processors off. Echo
+cancellation, specifically, gates a steady engine note about a second in and
+leaves nothing the analysis can read. Turning it off works in Chrome. Brave
+grants the request and then delivers digital silence.</p>
+<p>The app now asks for all three processors off, captures through an audio
+worklet rather than <code>MediaRecorder</code>, and fails in 300 ms with a message naming
+the cause when a browser hands back silence.</p>
+<h2>How it surfaced</h2>
+<p>The maintainer played <code>all-samples.m4a</code> from a laptop, held the phone next to
+it and recorded. The clip sounded like it faded after a second. The
+development-only export button, added minutes earlier for exactly this, saved
+the recording; measuring it showed the level dropping roughly forty times
+between 1.0 s and 3.0 s and partly recovering at 3.0 s.</p>
+<p>Without that button the recording would have been lost to a page reload, as an
+earlier one had been. It earned its place before it was a day old.</p>
+<h2>The chain of wrong guesses</h2>
+<p>Worth recording, because three of the four were reasonable and wrong.</p>
+<ol>
+<li><strong>&quot;Echo cancellation is on, turn it off.&quot;</strong> Correct diagnosis, and it
+reproduced the phase 2 failure exactly: <code>MediaRecorder</code> delivered container
+headers and no audio. Phase 2 had left the flag on for this very reason,
+without knowing what it cost.</li>
+<li><strong>&quot;Then drop <code>MediaRecorder</code> and capture raw through Web Audio.&quot;</strong> Right
+move, wrong implementation. The first version left the worklet node
+unconnected, on the reasoning that a capture node needs no output. Web Audio
+only renders the part of the graph that reaches the destination, so
+<code>process</code> was called on schedule with silence in its input. The phone
+produced a clip of exactly the right length with every sample zero.</li>
+<li><strong>&quot;The graph is fixed, so it will work now.&quot;</strong> It did not, and at that point
+two failures in a row made the app the likelier suspect than the device.</li>
+<li><strong>&quot;Browser recording on Android cannot produce usable engine audio.&quot;</strong>
+Overreached. It was true of the browser being tested and not of the
+platform. The maintainer pushed back on exactly this, and was right to.</li>
+</ol>
+<h2>What settled it</h2>
+<p>Guessing had to stop, and the phone has no reachable console, so the numbers
+had to go on screen. A development-only <strong>Mic check</strong> opens the microphone
+three times — all processors off, echo cancellation only, browser defaults —
+and for each one reports what the platform actually granted, the level through
+an analyser hung straight off the source, and the level through the same
+worklet the recorder uses. Two independent measurements, so the capture path
+can be cleared or blamed without argument.</p>
+<p>Chrome, all processors off, one reading per 250 ms:</p>
+<pre><code>0.034 0.035 0.048 0.033 0.047 0.035 0.040 0.040 0.030 0.040 0.040 0.029
+</code></pre>
+<p>Flat. Chrome, echo cancellation on:</p>
+<pre><code>0.005 0.080 0.075 0.042 0.015 0.007 0.0001 0.0015 0.0029 0.0027 0.0054 0.0016
+</code></pre>
+<p>The gate closing, live. Brave, all processors off: <code>echoCancellation=false</code>
+granted, then 94,848 frames with a peak of exactly <code>0.00000</code> while the engine
+was playing.</p>
+<p>Three facts fall out. Echo cancellation is the cause of the fade, and it is
+reproducible on demand. The capture path is sound, since an analyser hung
+directly off the source agrees with it. And Brave is alone in refusing.</p>
+<h2>Decisions</h2>
+<ul>
+<li><strong>All three processors off</strong>, and not negotiable: the one sound this app
+exists to hear is exactly the kind a voice processor removes.</li>
+<li><strong>Capture through an audio worklet, not <code>MediaRecorder</code>.</strong> No encoder, no
+container, no decode round trip, and not tied to the echo cancellation
+switch. Frames arrive at the microphone&#39;s rate and go through the resampler
+that was already under test.</li>
+<li><strong>No fallback to processed capture.</strong> The gated audio was run through the
+analysis section by section: confidence 0.00 everywhere, and nonsense rates.
+A fallback would show a healthy waveform and fail at Calculate, which is a
+worse place to fail than at the start.</li>
+<li><strong>Fail fast and say something useful.</strong> 300 ms of exact zeros is enough to
+stop, because a real microphone always has a noise floor. The message names
+the cause and points at Chrome or an upload, rather than reporting &quot;no audio
+was captured&quot; and leaving the user nowhere.</li>
+</ul>
+<h2>What this says about the stack</h2>
+<p>The maintainer asked, mid-struggle, whether the stack was wrong for this. The
+evidence says no, with one qualification. Analysis, waveform, cropping and
+uploads were never in question. Microphone capture is the one place where the
+browser is a thin layer over a platform that has its own ideas, and where a
+single browser can take the capability away entirely.</p>
+<p>Phase 6 wraps the same build in Capacitor. Android&#39;s native recorder can open
+an unprocessed audio source, which is not exposed to web pages at all, so the
+shipped app has a route that does not depend on browser goodwill. That was
+already the plan; this makes it a deliberate one.</p>
+<h2>Loose ends</h2>
+<ul>
+<li>The <strong>Mic check</strong> panel is development-only and stays for now. It is the only
+way to ask this question of a phone without a cable.</li>
+<li>Whether Brave is doing this deliberately, as fingerprinting protection, is
+unknown. Not worth chasing.</li>
+<li>The parabolic lag refinement could run past the peak on degenerate audio and
+return a negative rate. Always rejected for low confidence, so it never
+reached a user, but it is guarded now in both the port and the baseline.</li>
+</ul>
+
+</div></body></html>

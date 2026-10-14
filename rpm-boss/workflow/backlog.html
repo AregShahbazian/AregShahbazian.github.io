@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rpm-boss — backlog (ideas to realize)</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="./index.html">workflow docs</a> / backlog.md</nav>
+<h1>rpm-boss — backlog (ideas to realize)</h1>
+<p>Post-MVP, unordered. Captured from the leading doc on 2026-09-10.</p>
+<ul>
+<li>Video input: load a video, scrub with the waveform visible, pick the section,
+extract its audio (WhatsApp-style crop). Deferred from the MVP on 2026-09-10.</li>
+<li>Live waveform before recording: entering record mode first shows the mic
+input as a running waveform without capturing anything, so the user can aim
+the phone and wait for a clean signal. Pressing Record then starts the 10 s
+countdown and the capture. Better UX than committing to a take blind.
+Captured 2026-09-10; revisit after phase 4, because if the estimator turns
+out fragile on noisy audio this stops being polish and becomes the fix.</li>
+<li>A way for users to report a bad translation. All seventeen languages were
+written by Claude and none has been read by a native speaker; verification
+was deliberately deferred to after launch, so the corrections have to be able
+to come back from the people using the app. Captured 2026-09-10.</li>
+<li>Enhanced analysis: noise reduction, adaptive band selection.</li>
+<li>User-aided analysis: tap the combustions you see in the waveform; the app
+fits to them.</li>
+<li>Live tachometer: continuous RPM without a stored recording.</li>
+<li>Tachometer gauge on screen, next to the number.</li>
+<li>Stored results, named and grouped per vehicle; choose the group before
+recording/uploading.</li>
+<li>4-stroke / 2-stroke preset, persisted locally, switching the revolutions per
+combustion between 2 and 1. Deferred out of phase 4 on 2026-09-10: all seven
+ground-truth recordings are 4-stroke singles, so the 2-stroke path could only
+be tested as a multiplier. Needs a 2-stroke recording first.</li>
+<li>Multi-cylinder presets (firing order aware).</li>
+<li>Expected-range presets per vehicle.</li>
+<li>Suggested expected ranges per model: pick your bike and the range fills
+itself. Needs a body of data first — stock idle rpm for common
+single-cylinder bikes — which is a collection job before it is a feature.
+Captured 2026-09-10.</li>
+<li>Help dialog with instructions — what the app measures, where to hold the
+phone, what a bad reading looks like. Carries a language quick-selector with
+it, for the case the interface language is right and the explanation is not:
+a rider whose phone is set to English gets by with English labels but not
+with a paragraph of it. Whether the selector changes only the help text or
+switches the whole app is undecided; the first is less surprising, the second
+is one control instead of two. Captured 2026-09-14.</li>
+<li>Language support: English, Tagalog, Bisaya, possibly more — no longer a
+backlog item; it is phase <code>7-i18n</code>, inside the MVP.</li>
+</ul>
+
+</div></body></html>

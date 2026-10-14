@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design — Styling the app by hand</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">features</a> / <a href="index.html">styling</a> / design.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <b>design</b> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-styling
+feature: styling
+branch: feat/styling
+status: draft
+created: 2026-09-13</h2>
+<h1>Design — Styling the app by hand</h1>
+<p>Satisfies <code>prd.md</code>. One decision here reverses what the PRD expected, and it
+was reversed by a spike rather than by argument, so that comes first.</p>
+<h2>The spike</h2>
+<p>A throwaway Vite 8 + React 19 project, built to answer one question: does the
+<code>css</code> prop actually work in this app&#39;s toolchain? It was built, not reasoned
+about, because every part of the answer turned out to be a fact about versions.</p>
+<h3>styled-components&#39; <code>css</code> prop cannot be used</h3>
+<p>The PRD leaned towards <code>styled-components</code>, on the grounds that it is what
+the maintainer&#39;s day-job codebase uses and that only <code>twin.macro</code> was stale. That is true of
+<code>styled-components</code> itself. It is not true of the Babel plugin its <code>css</code> prop
+requires, and the <code>css</code> prop is the requirement.</p>
+<p>Three independent blocks, each verified:</p>
+<ol>
+<li><p><strong>Vite 8&#39;s React plugin no longer runs Babel.</strong> <code>@vitejs/plugin-react@6.1.1</code>
+declares exactly one dependency, <code>@rolldown/pluginutils</code>; the transform is
+oxc, and Babel is reachable only through the optional
+<code>@rolldown/plugin-babel</code> peer. A <code>babel: { plugins: [...] }</code> option is
+accepted and silently ignored — the spike built cleanly, and the <code>css</code> prop
+passed straight through to the DOM as an unknown attribute. Nothing failed
+loudly. That is the worst way for this to break.</p>
+</li>
+<li><p><strong><code>babel-plugin-styled-components@2.3.0</code> refuses Babel 8.</strong> Installing it
+beside <code>@babel/core@8.0.5</code> fails resolution outright:
+<code>ERESOLVE could not resolve … While resolving: babel-plugin-styled-components@2.3.0</code>.</p>
+</li>
+<li><p><strong>Its <code>css</code> prop visitor is written against Babel 7.</strong> Forced to run anyway,
+it throws <code>TypeError: t.jSXIdentifier is not a function</code> at
+<code>visitors/transpileCssProp.js:107</code> — a builder alias Babel 8 removed.</p>
+</li>
+</ol>
+<p>So adopting it would mean adding a Babel pass back to a build that no longer
+has one, pinning Babel to 7, and depending on a plugin that has not caught up.
+That is the same shape of block the PRD rejected <code>twin.macro</code> for. Rejecting
+one and accepting the other would be incoherent.</p>
+<h3>Emotion&#39;s <code>css</code> prop works, with no Babel at all</h3>
+<p><code>@emotion/react</code> needs only a JSX factory swap — <code>jsxImportSource</code>, a setting
+the oxc transform already honours. No plugin, no macro, nothing to keep in
+step with Babel.</p>
+<p>The spike compiled this, type-checked it, and shipped it:</p>
+<pre><code class="language-jsx">&lt;div
+  className={clsx(&#39;flex w-full gap-2 text-muted&#39;, on &amp;&amp; &#39;bg-accent&#39;, &#39;split:grid-cols-2&#39;)}
+  css={css`
+    height: ${h}px;
+    border-left: 2px solid var(--color-accent);
+    ${on ? &#39;opacity: 1;&#39; : &#39;opacity: 0.5;&#39;}
+  `}
+&gt;
+</code></pre>
+<p>Verified in the output, not assumed: <code>.bg-accent{background-color:var(--color-accent)}</code>
+and <code>.text-muted</code> in the stylesheet, <code>[data-theme=light]{--color-accent:#1f4e79}</code>
+overriding the theme token, the custom variant compiled to
+<code>@media (width&gt;=600px) and (orientation:landscape)</code>, and Emotion&#39;s runtime
+genuinely bundled (<code>@emotion/sheet</code>&#39;s <code>speedy</code> and <code>insertRule</code>,
+<code>@emotion/unitless</code>&#39;s <code>boxFlexGroup</code> and <code>strokeDashoffset</code> all present).</p>
+<p><strong>Cost: +7.1 kB gzipped</strong> — 68.78 kB without, 75.89 kB with. The budget in
+requirement 9 is 15 kB.</p>
+<h3>What this costs against the day-job syntax</h3>
+<p>The <code>css</code> tag has to be imported and applied:</p>
+<pre><code class="language-jsx">// day-job app
+import tw, {css} from &quot;twin.macro&quot;
+&lt;span css={[tw`shrink-0 text-base`, css`color: ${TONE[b.mode]};`]}&gt;
+
+// rpm-boss
+import { css } from &#39;@emotion/react&#39;
+&lt;span className=&quot;shrink-0 text-base&quot; css={css`color: ${TONE[mode]};`}&gt;
+</code></pre>
+<p>That is the same <code>css</code> tag the day-job code already imports and writes. What is lost is
+<code>tw</code> inside the array — which the PRD deliberately gave up anyway.</p>
+<h2>Decisions</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Utilities</td>
+<td><code>tailwindcss</code> 4 via <code>@tailwindcss/vite</code></td>
+<td>No PostCSS config, no content globs</td>
+</tr>
+<tr>
+<td>CSS text</td>
+<td><code>@emotion/react</code> <code>css</code> prop via <code>jsxImportSource</code></td>
+<td>Above</td>
+</tr>
+<tr>
+<td>Conditional classes</td>
+<td><code>clsx</code></td>
+<td>239 B, no deps, what any React developer expects</td>
+</tr>
+<tr>
+<td>Palette</td>
+<td>Tailwind <code>@theme</code> in its own CSS file</td>
+<td>One name serves both routes</td>
+</tr>
+<tr>
+<td>Preflight</td>
+<td><strong>Not imported</strong></td>
+<td>Below</td>
+</tr>
+<tr>
+<td>Shared styling</td>
+<td>Small components, not exported class strings</td>
+<td>PRD requirement 11</td>
+</tr>
+<tr>
+<td><code>tailwind-merge</code></td>
+<td>Not used</td>
+<td>Below</td>
+</tr>
+</tbody></table>
+<h3>Why no preflight</h3>
+<p><code>@import &quot;tailwindcss&quot;</code> pulls in Tailwind&#39;s reset — the spike&#39;s output carries
+<code>*,:after,:before</code>. The app already has its own small, deliberate reset, and
+requirement 5 makes any visible change a defect. Two resets would mean a list
+of diffs to chase for no gain, so the entry sheet imports the layers it wants:</p>
+<pre><code class="language-css">@layer theme, base, components, utilities;
+@import &quot;tailwindcss/theme.css&quot; layer(theme);
+@import &quot;tailwindcss/utilities.css&quot; layer(utilities);
+</code></pre>
+<p>Reversible. If preflight turns out to be wanted later it is a one-line change
+and a round of screenshot diffing.</p>
+<h3>Why no tailwind-merge</h3>
+<p>It exists to make a later class win over an earlier conflicting one, which
+matters when a shared component takes a <code>className</code> override. This design does
+not allow that: a shared component owns its classes and exposes a prop for each
+variation that has a real caller. A caller that wants to override <code>bg-*</code> is
+telling us the component needs a prop, not a merge. Saves ~7 kB gzipped and a
+class of order-dependent bugs.</p>
+<h2>File layout</h2>
+<pre><code>src/
+  palette.css     the palette, both themes, nothing else   (requirement 12)
+  index.css       tailwind layers, the custom variant, body, canvas globals
+  ui/kit.tsx      the shared components extracted below
+</code></pre>
+<p><code>palette.css</code> is imported by <code>index.css</code>, which <code>main.tsx</code> imports as it does
+today.</p>
+<h3>palette.css</h3>
+<pre><code class="language-css">@theme {
+  --color-fg:     #f0f0f0;
+  --color-bg:     #121212;
+  --color-muted:  #a0a0a0;
+  --color-accent: #8ab4f8;
+  --color-error:  #f2b8b5;
+  --color-btn:    #2a2f36;
+}
+
+/* Not colours, so not in the theme namespace, but they belong with it: both
+   are theme-dependent and --dim is read by the canvas. */
+:root { --dim: 0.6; --gap: 12px; --col: clamp(300px, 34vw, 460px); }
+
+/* The light theme, twice — device preference and explicit choice. Kept
+   together with the dark values above so the pair can be read side by side:
+   --error and --dim are not inversions, and the comments saying why move here
+   with them. */
+@media (prefers-color-scheme: light) { :root[data-theme=&#39;system&#39;] { … } }
+:root[data-theme=&#39;light&#39;] { … }
+</code></pre>
+<p>Two things this buys at once. <code>--color-accent</code> is usable from a <code>css</code> block as
+<code>var(--color-accent)</code>; <code>bg-accent</code> and <code>text-accent</code> are generated from the
+same declaration, so there is one name, not two (requirement 13). And because
+<code>@theme</code> emits real custom properties on <code>:root</code>, <code>usePalette</code>&#39;s
+<code>getComputedStyle</code> read keeps working (requirement 7) — it only needs its four
+property names updated.</p>
+<p>The PRD&#39;s open question about <code>@theme inline</code> resolves to <em>not</em> inline: the
+utilities must reference <code>var(--color-x)</code> so the <code>data-theme</code> override reaches
+them. The spike confirms they do.</p>
+<h2>The three routes, and when each is right</h2>
+<ol>
+<li><strong>A utility class.</strong> Anything Tailwind already names: layout, spacing,
+sizing, type, and the palette colours. This is the default.</li>
+<li><strong>The <code>css</code> prop.</strong> Real CSS that utilities cannot say: a nested selector, a
+media query with two conditions, <code>color-mix()</code>, a computed value, an
+<code>::backdrop</code>. Plain CSS text — the thing the PRD asked for.</li>
+<li><strong>A shared component in <code>ui/kit.tsx</code>.</strong> When the same styling means the same
+thing in more than one place.</li>
+</ol>
+<p>The rule between 1 and 2: <strong>utilities never appear inside a <code>css</code> block, and
+<code>css</code> never restates something a utility says.</strong> That split is what keeps the
+<code>css</code> block readable as CSS.</p>
+<h2>Logical properties</h2>
+<p>Requirement 8. Tailwind&#39;s <code>w-</code>/<code>h-</code> emit <code>width</code>/<code>height</code>, not the logical
+properties the stylesheet uses in 23 places for the Urdu build. The mapping
+that keeps mirroring:</p>
+<table>
+<thead>
+<tr>
+<th>Today</th>
+<th>Utility</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>padding-inline</code></td>
+<td><code>px-*</code> (already logical in Tailwind)</td>
+</tr>
+<tr>
+<td><code>margin-inline</code></td>
+<td><code>mx-*</code> (likewise)</td>
+</tr>
+<tr>
+<td><code>inline-size</code></td>
+<td><code>w-*</code> is <strong>not</strong> logical — use <code>[inline-size:…]</code> or leave it in the <code>css</code> prop</td>
+</tr>
+<tr>
+<td><code>block-size</code></td>
+<td>same, <code>h-*</code> is physical</td>
+</tr>
+</tbody></table>
+<p><code>px-*</code> and <code>mx-*</code> are safe: Tailwind emits <code>padding-inline</code> and <code>margin-inline</code>.
+Sizes are not, and the eleven <code>inline-size</code> uses are mostly on the canvas and
+the sheet, which are <code>css</code>-prop cases anyway. Tasks stage handles them one by
+one; the acceptance check is the Urdu build, not the grep.</p>
+<h2>Where each rule goes</h2>
+<p>69 rules, 57 <code>className</code> sites. The whole map:</p>
+<table>
+<thead>
+<tr>
+<th>Today</th>
+<th>Becomes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>.screen</code>, <code>.area-*</code>, the two layout media queries</td>
+<td><code>css</code> prop on <code>InputScreen</code>&#39;s <code>&lt;main&gt;</code> — named grid areas and a two-condition media query are exactly what the <code>css</code> prop is for</td>
+</tr>
+<tr>
+<td><code>.btn</code> ×6, <code>.btn-icon</code> ×2, <code>.btn-rec</code> ×1</td>
+<td><code>&lt;Button&gt;</code> in <code>ui/kit.tsx</code>, props <code>icon</code> and <code>tone</code> — both have real callers</td>
+</tr>
+<tr>
+<td><code>.link</code> ×3</td>
+<td><code>&lt;LinkButton&gt;</code> in <code>ui/kit.tsx</code></td>
+</tr>
+<tr>
+<td><code>.mono</code> ×3, <code>.muted</code> ×3, <code>.error</code> ×2, <code>.dot</code></td>
+<td>single utilities (<code>tabular-nums</code>, <code>text-muted</code>, <code>text-error</code>) at each site — one declaration is not a &quot;style statement written twice&quot;</td>
+</tr>
+<tr>
+<td><code>.status</code> ×3</td>
+<td>utilities; it is two declarations on one element</td>
+</tr>
+<tr>
+<td><code>.wave</code>, <code>.wave canvas</code>, <code>.wave-block</code>, <code>.wave-overview</code>, <code>.wave-detail</code></td>
+<td><code>css</code> prop in <code>WaveformBlock</code> / <code>WaveformCanvas</code>; the descendant rule becomes a nested <code>canvas { … }</code></td>
+</tr>
+<tr>
+<td><code>.player</code>, <code>.player .btn</code>, <code>.player .mono</code></td>
+<td>utilities in <code>Player</code>; the descendant rules disappear because the children are styled where they are written</td>
+</tr>
+<tr>
+<td><code>.range*</code>, <code>.result*</code>, <code>.rpm*</code>, <code>.readout</code>, <code>.miccheck pre</code></td>
+<td>utilities and <code>css</code> in their single owning component</td>
+</tr>
+<tr>
+<td><code>.sheet</code>, <code>.sheet::backdrop</code>, <code>.sheet h2</code>, <code>.sheet-body</code>, <code>.field*</code>, <code>.themes*</code>, <code>.samples*</code></td>
+<td><code>css</code> prop in <code>Settings</code> / <code>LanguagePicker</code>; <code>::backdrop</code> has no utility</td>
+</tr>
+<tr>
+<td><code>.row</code></td>
+<td><code>flex flex-wrap gap-3</code> at its two sites</td>
+</tr>
+</tbody></table>
+<p>What survives in <code>index.css</code>: the Tailwind imports, <code>@custom-variant split</code>,
+<code>body</code>, and the <code>:root</code> font and <code>color-scheme</code>.</p>
+<h3>The split variant</h3>
+<pre><code class="language-css">@custom-variant split (@media (min-width: 600px) and (orientation: landscape));
+</code></pre>
+<p>Verified by the spike. Used for utilities that change at the split; the grid
+template itself stays in the <code>css</code> prop, where the media query reads as CSS.</p>
+<h2>Performance</h2>
+<p><code>InputScreen</code> re-renders at up to 20 Hz during playback —
+<code>useAudioInput.ts:155</code> pushes <code>positionS</code> on a <code>POSITION_STEP_S</code> of 0.05 s, and
+the waveform subtree renders with it.</p>
+<p>Emotion hashes and caches a serialized block, so a static <code>css</code> template costs
+a map lookup per render. What is not free is interpolating a value that changes
+every frame: that is a new hash, a new class and a new inserted rule each time.</p>
+<p><strong>Rule: no per-frame value is ever interpolated into a <code>css</code> block.</strong> The app
+does not need to break it — the playhead, the crop window and the combustion
+marks are all drawn on the canvas already, and nothing in the DOM moves per
+frame. This is written down so it stays true, not because it is currently at
+risk.</p>
+<h2>Browser floor</h2>
+<p>Tailwind 4 needs Chrome 111 / Safari 16.4 for <code>@property</code> and <code>color-mix()</code>.
+<code>index.css:186</code> already uses <code>color-mix()</code> on the waveform canvas background,
+so the app&#39;s floor is already there and this raises nothing. <code>minSdkVersion</code> is
+24, but Android&#39;s WebView updates through the Play Store independently of the
+OS, so the floor is the WebView, not the Android version. Checked on the two
+test phones during implementation.</p>
+<h2>Order of work</h2>
+<p>Sketched here; <code>tasks.md</code> is the next stage.</p>
+<ol>
+<li>Toolchain and palette, app untouched, everything still passing.</li>
+<li><code>ui/kit.tsx</code> and the components that use it.</li>
+<li>The leaf components, one per commit, each diffed against its phase 8
+screenshot.</li>
+<li><code>InputScreen</code>&#39;s layout last — the grid is the one piece where a mistake is
+visible everywhere.</li>
+<li>Delete what is left of <code>index.css</code>.</li>
+</ol>
+<p>Each step leaves the app building and installable, because a half-converted app
+is the one state the PRD says must not survive the feature.</p>
+<h2>Risks</h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Handling</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>The <code>css</code> prop&#39;s JSX factory swap affects every <code>.tsx</code></td>
+<td>It is a compiler setting, not a runtime one; the spike type-checked and built with it. Vitest is unaffected — the tests are node-environment DSP tests with no JSX.</td>
+</tr>
+<tr>
+<td>Pixel drift while converting 69 rules</td>
+<td>Convert one component per commit and diff against <code>store/screenshot1..7.png</code>. The acceptance criteria name three widths and both themes.</td>
+</tr>
+<tr>
+<td>RTL regressions from physical sizing utilities</td>
+<td>The logical-property table above; verified in the Urdu build, not by grep.</td>
+</tr>
+<tr>
+<td>Emotion adds 7.1 kB</td>
+<td>Inside the 15 kB budget, measured, not estimated.</td>
+</tr>
+<tr>
+<td>A future Tailwind major</td>
+<td>The palette is plain custom properties with a <code>@theme</code> wrapper; utilities are the part that would churn, and they are the part that is easy to read and change.</td>
+</tr>
+</tbody></table>
+<h2>Open questions</h2>
+<p>None. The PRD&#39;s four are answered: Emotion over styled-components (spike),
+<code>@theme</code> for the palette (spike), the per-frame interpolation rule (above), and
+<code>clsx</code> earns its 239 bytes.</p>
+
+</div></body></html>

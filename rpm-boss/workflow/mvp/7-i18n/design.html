@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design — Languages</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">7-i18n</a> / design.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <b>design</b> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-i18n
+feature: 7-i18n
+branch: feat/7-i18n
+status: draft
+created: 2026-09-10</h2>
+<h1>Design — Languages</h1>
+<h2>0. The strings, counted</h2>
+<p>Every user-facing string in the app today, which is what the extraction has to
+cover. Twenty-three, not the nineteen the PRD guessed.</p>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>Count</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/types.ts"><code>audio/types.ts</code></a></td>
+<td>9</td>
+<td>input errors, including the one with a number in it</td>
+</tr>
+<tr>
+<td><code>dsp/types.ts</code></td>
+<td>3</td>
+<td>analysis errors</td>
+</tr>
+<tr>
+<td><code>ui/StatusLine.tsx</code></td>
+<td>5</td>
+<td>idle, decoding, recording, loaded, dismiss</td>
+</tr>
+<tr>
+<td><code>ui/UploadButton.tsx</code></td>
+<td>1</td>
+<td>Upload audio</td>
+</tr>
+<tr>
+<td><code>ui/RecordButton.tsx</code></td>
+<td>2</td>
+<td>Record, Stop</td>
+</tr>
+<tr>
+<td><code>ui/Player.tsx</code></td>
+<td>2</td>
+<td>Play, Stop</td>
+</tr>
+<tr>
+<td><code>ui/RangeFields.tsx</code></td>
+<td>3</td>
+<td>legend, Min, Max</td>
+</tr>
+<tr>
+<td><code>ui/InputScreen.tsx</code></td>
+<td>1</td>
+<td>Calculate</td>
+</tr>
+<tr>
+<td><code>ui/ResultView.tsx</code></td>
+<td>4</td>
+<td>Analysing, rpm, marked, and the two octave notes</td>
+</tr>
+<tr>
+<td><code>ui/octave.ts</code></td>
+<td>—</td>
+<td>the two notes live here</td>
+</tr>
+</tbody></table>
+<p>Development-only text in <code>MicCheck.tsx</code> and <code>ExportButton.tsx</code> is excluded, per
+the PRD.</p>
+<p>Two of these are not plain strings. The too-short message carries a duration,
+and the loaded line carries a filename and a length. Both are handled in §3.</p>
+<h2>1. Rewriting the English first</h2>
+<p>Every language is translated from English, so jargon and long sentences cost
+seventeen times over. The rewrite happens before any translation, and it is
+part of this phase rather than a tidy-up afterwards.</p>
+<table>
+<thead>
+<tr>
+<th>now</th>
+<th>after</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>That clip is too short. Record or pick at least 2 seconds.</td>
+<td>Record at least 2 seconds.</td>
+</tr>
+<tr>
+<td>Couldn&#39;t hear a steady engine in that section. Try a clearer part of the recording.</td>
+<td>No steady engine sound here. Try another part.</td>
+</tr>
+<tr>
+<td>This browser will not record without the processing that mutes engine sound. Record in Chrome, or upload a file instead.</td>
+<td>This browser cannot record engine sound. Use Chrome, or open a file.</td>
+</tr>
+<tr>
+<td>Couldn&#39;t read that file. Use WAV, MP3, AAC/M4A or OGG.</td>
+<td>Cannot open that file. Use WAV, MP3, AAC/M4A or OGG.</td>
+</tr>
+<tr>
+<td>That file is over 50 MB. Pick a shorter recording.</td>
+<td>Too big. Use a recording under 50 MB.</td>
+</tr>
+<tr>
+<td>Microphone access was denied. Allow it in the browser and try again.</td>
+<td>Microphone blocked. Allow it, then try again.</td>
+</tr>
+<tr>
+<td>No audio was captured. Check that no other app is using the microphone and try again.</td>
+<td>Nothing was recorded. Close other apps using the microphone.</td>
+</tr>
+<tr>
+<td>The microphone only works over https or localhost. Open the app from a secure address.</td>
+<td>The microphone needs a secure address (https).</td>
+</tr>
+<tr>
+<td>Couldn&#39;t run the analysis. Reload the page and try again.</td>
+<td>Analysis could not start. Reload the page.</td>
+</tr>
+<tr>
+<td>Upload a recording or record the engine.</td>
+<td>Open a recording, or record the engine.</td>
+</tr>
+<tr>
+<td>Recording… hold the phone near the engine.</td>
+<td>Recording. Hold the phone near the engine.</td>
+</tr>
+<tr>
+<td>Upload audio</td>
+<td>Open audio</td>
+</tr>
+<tr>
+<td>The selected window is under 2 seconds. Widen it and try again.</td>
+<td>Choose at least 2 seconds.</td>
+</tr>
+</tbody></table>
+<p>Two words go for being jargon rather than for being long. <strong>Clip</strong> is an
+editing word; a rider says recording. <strong>Upload</strong> implies sending something
+somewhere, which this app never does, and <em>unggah</em> / <em>muat naik</em> carry the same
+implication in Indonesian and Malay. Opening a file is what actually happens.</p>
+<p>The changed English is what gets translated, and it changes the app in English
+too.</p>
+<h2>2. The layer</h2>
+<pre><code>src/i18n/
+  index.ts          t(), current language, setLanguage, detection
+  languages.ts      the seventeen: code, own name, and where it comes from
+  en.ts             the source, and the type every other file must satisfy
+  es.ts fr.ts pt.ts id.ts ms.ts fil.ts ceb.ts hy.ts vi.ts
+  th.ts hi.ts ur.ts ru.ts uk.ts sw.ts bn.ts
+</code></pre>
+<p>No library. <code>en.ts</code> exports a plain object; every other file is typed
+<code>Messages</code>, so a missing or misspelled key is a TypeScript error rather than a
+runtime surprise. That is most of what an i18n library sells, obtained from the
+compiler for free.</p>
+<p><code>t(&#39;key&#39;)</code> reads from the current language and falls back to English per key.
+The fallback is a safety net: <code>messages.test.ts</code> fails the build when any
+language is short a key, so it should never fire.</p>
+<p>Language is held in a React context with a provider at the root, so a change
+re-renders the tree. <code>setLanguage</code> writes to <code>localStorage</code> under
+<code>rpm-boss.language</code>, beside the expected-range preference that phase 4 added,
+with the same try/catch since a private window can refuse it.</p>
+<p><strong>Detection</strong>, in order: a stored choice, then <code>navigator.languages</code> matched
+first exactly (<code>pt-BR</code> → <code>pt</code>) and then by base tag, then English. <code>tl</code> maps to
+<code>fil</code>, since Android reports Tagalog and our file is Filipino.</p>
+<h2>3. The two strings that are not plain strings</h2>
+<p><strong>A duration.</strong> <code>Intl.NumberFormat</code> with <code>style: &#39;unit&#39;</code> formats the number and
+its unit together:</p>
+<pre><code class="language-ts">new Intl.NumberFormat(lang, { style: &#39;unit&#39;, unit: &#39;second&#39;, unitDisplay: &#39;long&#39; }).format(2)
+// en: &quot;2 seconds&quot;   id: &quot;2 detik&quot;   ru: &quot;2 секунды&quot;   hi: &quot;2 सेकंड&quot;
+</code></pre>
+<p>So the message is <code>Record at least {duration}.</code> — one slot, no plural rule
+anywhere in the app. Russian has three plural forms and Thai has none; neither
+is our problem. This is the point of §1 of the discussion note.</p>
+<p><strong>A filename and a length.</strong> The loaded line is
+<code>{name} · {seconds} s</code>. The name is the user&#39;s own and is never translated;
+the length is a plain number with one decimal. Formatting is
+<code>t(&#39;loaded&#39;, { name, duration })</code>, with interpolation by a five-line replace
+over <code>{key}</code> — the whole of what is needed here.</p>
+<h2>4. The picker</h2>
+<p>A <code>&lt;select&gt;</code>, placed after the source buttons, which is convenient and nothing
+more; phase 8 puts it somewhere considered. Each option is the language&#39;s own
+name in its own script, and the list is sorted with
+<code>new Intl.Collator().compare</code> over those names, so Latin names run A to Z and
+each other script forms its own block.</p>
+<p>Native <code>&lt;select&gt;</code> rather than a custom dropdown, deliberately: it gets the
+platform&#39;s own picker on a phone, which is scrollable, searchable on Android
+and already in the user&#39;s language.</p>
+<h2>5. Urdu</h2>
+<p>Urdu&#39;s strings ship. Its layout does not: <code>dir=&quot;rtl&quot;</code> would mirror the crop
+handles, the waveform, the player and the result, all of which phase 8 is
+rebuilding. The app stays left-to-right for now, so Urdu reads correctly
+line by line while sitting in a layout built for the other direction.</p>
+<p><code>languages.ts</code> carries a <code>rtl: true</code> flag on Urdu that nothing reads yet, so
+phase 8 has the fact recorded rather than having to rediscover it.</p>
+<h2>6. Translating</h2>
+<p>Claude writes all sixteen non-English files. The rules from the discussion note
+apply to every one: short sentences, the fix before the diagnosis, no idiom, no
+borrowed English where a common word exists.</p>
+<p>Two specific cautions:</p>
+<ul>
+<li><strong>Do not translate the app&#39;s name.</strong> RPM Boss stays RPM Boss.</li>
+<li><strong>Do not translate <code>rpm</code>.</strong> It is a unit and it appears on the tachometers
+these riders already know. Several of the seventeen would happily render it
+as an abbreviation nobody uses.</li>
+</ul>
+<p>Every file gets a header comment naming the language and stating that a native
+speaker has not yet reviewed it, so nobody later mistakes it for verified.</p>
+<h2>7. Tests</h2>
+<ul>
+<li><code>messages.test.ts</code> — every language has exactly the keys English has, no
+key&#39;s value is identical to English by accident in a language that should
+differ, and no value still contains <code>{</code> after formatting with its arguments.</li>
+<li><code>detect.test.ts</code> — <code>navigator.languages</code> cases: exact, base tag, <code>tl</code> to
+<code>fil</code>, unknown to English, stored choice beating the device.</li>
+<li><code>duration.test.ts</code> — the too-short message at 1, 2 and 3 seconds in English,
+Russian, Indonesian and Thai, which between them cover one plural form, three,
+and none.</li>
+<li><code>strings.test.ts</code> — a source scan asserting no bare user-facing literal is
+left in <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/ui/"><code>src/ui/</code></a>, <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/audio/"><code>src/audio/</code></a> or <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/dsp/"><code>src/dsp/</code></a>. This is AC 1, and it is the one
+test that stops the layer rotting the first time someone is in a hurry.</li>
+</ul>
+<h2>8. Out</h2>
+<p>No date or time formatting, since the app shows neither. No currency. No
+per-language fonts. No translation of the Play listing, which does not exist.</p>
+
+</div></body></html>

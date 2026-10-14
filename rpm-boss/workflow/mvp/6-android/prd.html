@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD — Android app</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">6-android</a> / prd.md &nbsp;|&nbsp; stages: <b>prd</b> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-android
+feature: 6-android
+branch: feat/6-android
+status: draft
+created: 2026-09-10
+depends_on: [5-result-view]</h2>
+<h1>PRD — Android app</h1>
+<h2>Goal</h2>
+<p>The same build, wrapped in Capacitor, signed, installed on a phone, and
+recording through a microphone path no browser will give us.</p>
+<h2>Why</h2>
+<p>Two reasons, and only one of them is distribution.</p>
+<p>The first is that the MVP says the primary target is an Android app. Everything
+so far runs in a browser because that is the fastest loop, not because the
+browser is the destination.</p>
+<p>The second came out of phase 4 and matters more. Android will not hand a web
+page unprocessed microphone audio in any dependable way: with echo cancellation
+on, the platform gates a steady engine note about a second in, and turning it
+off produced silence on one of the two browsers tested. A native recorder can
+open <code>MediaRecorder.AudioSource.UNPROCESSED</code>, which is not exposed to web pages
+at all, and hand raw PCM straight to the same DSP. That is the difference
+between an app that reads an engine and one that reads one on some phones.</p>
+<h2>User stories</h2>
+<ol>
+<li>As a user, I install RPM Boss from a file, open it, and it looks and behaves
+like the web app because it is the web app.</li>
+<li>As a user, I press Record and the engine sound arrives unprocessed, at a
+level that holds for the whole take, whatever browser I happen to use.</li>
+<li>As a user, the app asks for the microphone once, in the way Android asks.</li>
+<li>As a user, I can still load a file I already have.</li>
+</ol>
+<h2>Scope</h2>
+<h3>In</h3>
+<ul>
+<li><strong>Capacitor shell</strong> around the existing Vite build. No second codebase, no
+framework change, no separate Android UI.</li>
+<li><strong>Identity</strong>: name <code>RPM Boss</code>, package <code>com.mby4m.rpmboss</code>, versionCode 1,
+versionName 1.0, minSdk 24, targetSdk 36 — matching the two apps already
+published from this account.</li>
+<li><strong>Native recorder</strong> as a small Kotlin Capacitor plugin: opens
+<code>AudioSource.UNPROCESSED</code>, falls back to <code>VOICE_RECOGNITION</code> then <code>MIC</code> when
+a device does not offer it, streams PCM to the web layer, and reports which
+source it actually got.</li>
+<li><strong>One recording path in the app.</strong> The web layer asks the plugin when running
+natively and keeps the worklet path in the browser, behind one interface, so
+neither one grows a copy of the other&#39;s logic.</li>
+<li><strong>Microphone permission</strong> requested through the platform, with the existing
+<code>mic-denied</code> message when refused.</li>
+<li><strong>Icon</strong> from plate 01, Trace, at every density, as an adaptive icon.</li>
+<li><strong>Signing</strong>: release built with a dedicated upload alias in the release keystore, wired the
+way the other two apps are — real values in a gitignored <code>key.properties</code>,
+a tracked example beside it, debug fallback so a fresh clone builds.</li>
+<li><strong>Installed and exercised on the maintainer&#39;s phone</strong>, with screenshots for a
+later store listing.</li>
+<li><strong>Privacy policy</strong> written and published at
+<code>https://mby4m.github.io/legal/rpmboss/</code>, since the app takes microphone input.</li>
+</ul>
+<h3>Out</h3>
+<ul>
+<li><strong>Anything in the Play Console.</strong> No app created, no track, no upload, no
+tester list. Explicitly deferred by the maintainer.</li>
+<li>The 12-tester rule, the store listing copy, the feature graphic.</li>
+<li>iOS. Capacitor would allow it; nothing about this project asks for it.</li>
+<li>Background recording, foreground services, notifications.</li>
+<li>Any change to the DSP, the analysis, the crop or the result view.</li>
+</ul>
+<h2>Acceptance criteria</h2>
+<ol>
+<li><code>npx cap sync android</code> and a release build both succeed from a clean tree.</li>
+<li>The signed APK installs on the maintainer&#39;s phone and opens to the app.</li>
+<li>Recording works in the installed app, and the level holds for a five second
+take of the same laptop playback that faded in the browser.</li>
+<li>The plugin reports the audio source it opened, and on this device that is
+<code>UNPROCESSED</code>.</li>
+<li>Calculate on a native recording gives a number consistent with the same
+audio analysed in the browser.</li>
+<li>Upload still works in the installed app.</li>
+<li>Denying the microphone shows the existing message, and the app stays usable
+for uploads.</li>
+<li>The APK is signed with the <code>rpmboss</code> upload key, confirmed against the
+fingerprints recorded in a private signing doc.</li>
+<li>The icon appears correctly on the launcher, in both a round and a square
+mask.</li>
+<li><code>npm test</code>, <code>npm run lint</code> and <code>npm run build</code> still pass, and the browser
+build is unaffected.</li>
+</ol>
+<h2>Non-goals and constraints</h2>
+<ul>
+<li>The web build stays the source of truth. Nothing in <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/"><code>src/</code></a> may depend on
+Capacitor being present; the native path is behind a runtime check.</li>
+<li>No Capacitor community plugin for audio. The requirement is one specific
+audio source, and a plugin that does not expose it is worse than thirty lines
+of Kotlin that does.</li>
+<li>The keystore lives outside the repo and never enters it.</li>
+</ul>
+<h2>Open questions</h2>
+<ul>
+<li><strong>Does this phone actually grant <code>UNPROCESSED</code>?</strong> It is optional; a device
+advertises it through <code>PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED</code> and may
+simply route it to <code>MIC</code>. The fallback order handles it either way, but the
+answer decides whether the native app is genuinely better here or only in
+principle. Answered by AC 4 on the real device.</li>
+<li><strong>Does the web recorder stay?</strong> Keeping it means two capture paths forever.
+Removing it means the browser version loses recording entirely. Decide in
+design, but the browser is the test loop, so leaning towards keeping it.</li>
+<li><strong>What sample rate does the native path deliver?</strong> Whatever the device gives;
+<code>decodeToClip</code> resamples. Worth confirming it is not doing something
+expensive at 48 kHz on a phone.</li>
+</ul>
+
+</div></body></html>

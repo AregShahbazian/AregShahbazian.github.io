@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review — Audio input</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">2-audio-input</a> / review.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <b>review</b></nav>
+<hr>
+<h2>id: rb-audio-input
+feature: 2-audio-input
+stage: review
+status: closed — B1-B13 pass (maintainer, 2026-09-10) after fix 5b30457; C1-C4, C8 fixed in 1f812bc
+created: 2026-09-10
+commits: 509c64a..3f98b26 (8 commits on main, unpushed at time of writing)</h2>
+<h1>Review — Audio input</h1>
+<p>Review only: findings and a checklist, no fixes. Fixes, if any, are decided
+after the checklist is filled and go in as <code>fix(...): ... [rb-audio-input]</code>.</p>
+<h2>A. Automated</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm test</code></td>
+<td>22 passed (fixtures 7, resample 7, decode 8)</td>
+</tr>
+<tr>
+<td><code>npm run lint</code></td>
+<td>clean</td>
+</tr>
+<tr>
+<td><code>tsc -b</code> + <code>npm run build</code></td>
+<td>clean, 220 kB JS</td>
+</tr>
+</tbody></table>
+<h2>B. Manual checklist (Android Chrome, <code>./scripts/dev.sh</code>, <a href="http://localhost:5173">http://localhost:5173</a>)</h2>
+<p>Fill in with ✅ / ❌ and a note. Test files are in <code>Download/rpms</code> on the phone.</p>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>B1</strong> ✅ <strong>Record hard stop</strong> — passes after fix 5b30457 (C7). Before the fix: 0.1 s clip, 205 bytes recorded.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B2</strong> ✅ <strong>Record early stop</strong> — passes after fix 5b30457 (C7). Before the fix: empty blob, decode error.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B3</strong> <strong>Seven AAC originals</strong> upload and decode; durations match <code>combustion-counts.md</code> (11.2, 9.5, 9.8, 6.4, 6.6, 15.9, 8.1 s).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B4</strong> <strong>WAV</strong> decodes (after-cold.wav, 6.4 s).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B5</strong> <strong>MP3</strong> decodes (after-cold.mp3).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B6</strong> <strong>OGG</strong> decodes (after-cold.ogg) — open question from the PRD.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B7</strong> <strong>M4A</strong> decodes (after-cold.m4a) — open question from the PRD.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B8</strong> <strong>60 MB refusal</strong> — big.wav is refused at once with the 50 MB message, no &quot;Decoding…&quot; state shown.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B9</strong> <strong>Undecodable file</strong> — any non-audio file under 50 MB gives the &quot;Couldn&#39;t read that file&quot; message.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B10</strong> <strong>Mic denied</strong> — deny once: permission message; allow: Record works.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B11</strong> <strong>Playback</strong> — plays to the end, counter returns to 0:00; Stop mid-way resets; playing again after a new upload uses the new clip.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B12</strong> <strong>Replace</strong> — uploading while a clip is loaded replaces it; recording while playing stops playback first.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B13</strong> <strong>Desktop Chrome</strong> — nothing breaks (layout only).</li>
+</ul>
+<h2>C. Code review findings (self-review, ordered by weight)</h2>
+<ul>
+<li><p><strong>C1</strong> ✅ fixed in 1f812bc — Double resampling in the browser. <code>decodeBuffer</code> creates a default <code>AudioContext</code>, so <code>decodeAudioData</code> first resamples the file to the device rate (48 kHz on Android), then <code>resampleTo16k</code> resamples again. Correct, but a wasted pass and two interpolation steps. Constructing <code>new AudioContext({ sampleRate: 16000 })</code> makes the browser deliver 16 kHz directly with its own resampler; <code>resampleTo16k</code> then only runs in tests and as a fallback. Suggested fix, small. (<code>src/audio/load.ts:6</code>)</p>
+</li>
+<li><p><strong>C2</strong> ✅ fixed in 1f812bc — <code>recorder.start()</code> is not guarded. If the WebView rejects the default mimeType or the stream is unusable, <code>start</code> throws inside the async IIFE and only surfaces as an unhandled rejection; the UI stays in &quot;recording&quot;. Wrap it and route to <code>onError(&#39;record-failed&#39;)</code>. (<code>src/audio/record.ts:96</code>)</p>
+</li>
+<li><p><strong>C3</strong> ✅ fixed in 1f812bc — Redundant branch in the recorder&#39;s <code>onstop</code> catch: both arms build the same <code>InputError(&#39;record-failed&#39;, e)</code>. Cosmetic. (<code>src/audio/record.ts:88</code>)</p>
+</li>
+<li><p><strong>C4</strong> ✅ fixed in 1f812bc — Error state hides the clip actions. In <code>error</code> status the Player stays visible only if a clip exists, which is right, but the error text is dismissed by tapping it, with no hint that it is tappable. Consider auto-clearing on the next action only (already done) and dropping the tap handler, or adding a small &quot;dismiss&quot;. UX nit.</p>
+</li>
+<li><p><strong>C5</strong> Recording name is local time without date. Two recordings in the same minute get the same name. Irrelevant until results are stored (backlog).</p>
+</li>
+<li><p><strong>C6</strong> No test for <code>trimClip</code> on a mic clip path — it is covered on a fixture, which exercises the same function. Acceptable.</p>
+</li>
+<li><p><strong>C7</strong> <strong>Blocker.</strong> <code>echoCancellation: false</code> starves MediaRecorder on the test phone (ASUS AI2302, Chrome 140). Probed on-device over DevTools: default constraints give 46 kB per 3 s; <code>echoCancellation:false</code> alone gives 0 bytes and also forces <code>noiseSuppression</code> and <code>autoGainControl</code> to false in the resulting track settings; <code>noiseSuppression:false</code> alone and <code>autoGainControl:false</code> alone both record normally (46 kB). So on this device &quot;echo cancellation off&quot; switches the capture to a raw path that never delivers frames to the recorder. Suggested fix: leave <code>echoCancellation</code> at the browser default, keep <code>noiseSuppression:false</code> and <code>autoGainControl:false</code>, keep <code>channelCount:1</code>; and make the recorder fail loudly if it produced fewer than ~1 kB (a clear &quot;no audio captured&quot; message instead of a decode error). Whether AGC/NS off actually helps the analysis is for <code>4-analysis</code> to measure; the fixture recordings were made with a stock recorder app, processing on. (<code>src/audio/record.ts:18</code>)</p>
+</li>
+<li><p><strong>C8</strong> ✅ fixed in 1f812bc — On a non-secure origin (the LAN address) <code>navigator.mediaDevices</code> is undefined and the user sees &quot;Recording failed&quot;. Should say that the microphone needs <code>localhost</code> or https. The dev script should also re-apply <code>adb reverse</code> on demand, because the mapping is lost when the phone reconnects (happened during this review). (<code>src/audio/record.ts:46</code>, <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/scripts/dev.sh"><code>scripts/dev.sh</code></a>)</p>
+</li>
+<li><p><strong>C9</strong> ✅ kept, committed in ebd95e9 — debug aids added during this review: dev-only cause chain appended to the error message in <code>useAudioInput.fail()</code> and a <code>[rec]</code> console line with chunk count and blob size in <code>record.ts</code>. Keep the console line, keep the cause chain dev-only; both go into the fix commit or are dropped, to be decided with the fixes.</p>
+</li>
+<li><p><strong>C10</strong> Dev-only cause chain (C9) shows on the 50 MB refusal too, e.g. &quot;[dev: InputError: …]&quot;. Expected: dev builds only, stripped in production. Not a defect.</p>
+</li>
+</ul>
+<h2>D. Open question carried from the PRD</h2>
+<p>Whether Android Chrome decodes OGG/Vorbis and M4A through <code>decodeAudioData</code>.
+Answered: B6 (OGG) and B7 (M4A) both decode on Android Chrome 140 and on laptop Chrome. No decoder needed. If either fails, the decision is a
+discussion (drop the format from the promise, or add a decoder), not a fix
+in this stage.</p>
+<h2>E. Test environment decision</h2>
+<p>Laptop browser (upload + playback) is the dev-test loop from here on; the phone is only needed for recording and the Android phase. Laptop mic does not work under Ubuntu on this machine (separate, pre-existing issue), so recording is out of the laptop loop.</p>
+
+</div></body></html>

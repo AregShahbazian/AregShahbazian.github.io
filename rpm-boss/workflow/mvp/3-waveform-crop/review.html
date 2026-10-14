@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review — Waveform and crop</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">3-waveform-crop</a> / review.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <b>review</b></nav>
+<hr>
+<h2>id: rb-waveform-crop
+feature: 3-waveform-crop
+branch: feat/3-waveform-crop
+stage: merged
+status: closed 2026-09-10 — B1-B19 confirmed by the maintainer; merged as 84c2ed6, deployed
+created: 2026-09-10
+commits: df3784c..3f8e65e (14 on the branch, pushed) + doc commits in ~</h2>
+<h1>Review — Waveform and crop</h1>
+<p>Review only: findings and a checklist, no fixes. Approved fixes land on the
+branch as <code>fix(...): ... [rb-waveform-crop]</code>.</p>
+<h2>A. Automated</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm test</code></td>
+<td>45 passed, 8 files (fixtures 7, resample 7, decode 8, selection 6, peaks 4, slice 6, range 4, format 3)</td>
+</tr>
+<tr>
+<td><code>npm run lint</code></td>
+<td>clean</td>
+</tr>
+<tr>
+<td><code>tsc -b</code> + <code>npm run build</code></td>
+<td>clean, 234 kB JS / 74 kB gzipped</td>
+</tr>
+</tbody></table>
+<h2>B. Manual checklist</h2>
+<p>B1-B13 were driven by Claude in laptop Chrome through synthetic pointer events
+(mouse and uploads only), and what it observed is noted on each item. The
+maintainer confirmed B1-B18 on 2026-09-10, phone included, and B19 on the
+deployed site after the merge. Every box is ticked; the phase is closed.</p>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>B1</strong> (agent-verified) Seven fixtures load and draw a waveform of the right length; <code>after cold.aac</code> defaults to 0:00.0-0:06.4, <code>before cold clutch.aac</code> to 0:00.0-0:10.0 (AC 1).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B2</strong> (agent-verified) Dragging the right edge past 10 s from the left holds the window at 10.0 s (AC 2).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B3</strong> (agent-verified) Dragging edges together holds at 1.0 s (AC 2).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B4</strong> (agent-verified) Body drag preserves the length exactly and clamps at both ends of the clip (AC 3).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B5</strong> (agent-verified) An edge lands where the pointer is, to 0.000 s, and two consecutive drags stay aligned — the view does not re-centre (finding 1).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B6</strong> (agent-verified) A 2 s window (~23 px at the 30 s detail span) drags by its body 8.00 s with the length kept (finding 3).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B7</strong> (agent-verified) A 127 s file shows the overview strip plus the detail view; tapping the overview centres the window there (AC 4).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B8</strong> (agent-verified) Pushing the window past the edge of the detail view scrolls it by the smallest amount that brings the window back, and the window stays visible.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B9</strong> (agent-verified) Windows spanning a minute read <code>0:58.6 - 1:00.6</code> and <code>1:58.6 - 2:00.6</code>; no <code>0:60.0</code> anywhere (finding 4).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B10</strong> (agent-verified) Play plays only the window: a 2.0-5.0 s crop counts <code>0:01 / 0:03</code> and returns to <code>0:00 / 0:03</code> at the end, button back to Play (AC 5).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B11</strong> (agent-verified) Loading a new clip resets the window to the default (AC 6).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B12</strong> (agent-verified) A 0.5 s upload is refused with &quot;That clip is too short…&quot; and the previous clip stays loaded (AC 6b, upload half).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B13</strong> (agent-verified) Clips at or under 30 s show a single canvas, no overview strip.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B14</strong> Phone: each edge of a <em>narrow</em> window can be grabbed with a finger, and the body dragged, without missing (PRD 48 px hit areas).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B15</strong> Phone: dragging on the canvas never scrolls the page (<code>touch-action: none</code>).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B16</strong> Phone: dragging stays smooth, including on the 127 s file with the overview strip.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B17</strong> Phone: windowed playback and the position line, on a cropped window.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B18</strong> Phone: a recording stopped at ~0.5 s is refused with the too-short message (AC 6b, recording half).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B19</strong> Phone: after the merge, the same passes on the deployed site (no USB, so this is also the mic-over-https check).</li>
+</ul>
+<h2>C. Code-review findings, disposition</h2>
+<p>The round the maintainer triggered produced ten findings. All are addressed on the
+branch, in three commits.</p>
+<ul>
+<li><strong>C1</strong> ✅ fixed in 155c786 — the detail view re-centred on the selection midpoint on every change, so an edge drag moved at twice pointer speed and a body drag slid the waveform under a pinned window, recomputing peaks each move. <code>nextDetailRange</code> now keeps the previous range while the window is visible and scrolls minimally otherwise; unit-tested for object identity.</li>
+<li><strong>C2</strong> ✅ fixed in 155c786 — <code>sliceClip</code> rounded start and end independently, so a moved window&#39;s sample count jittered by one. The count now comes from the length. The regression test fails against the old formula (two distinct counts) and passes now.</li>
+<li><strong>C3</strong> ✅ fixed in 155c786 — inside the window only the outer 8 px resize, so windows under 48 px keep a draggable body.</li>
+<li><strong>C4</strong> ✅ fixed in 155c786 — one <code>formatTime</code> shared with the player rounds before splitting minutes; 59.97 s reads <code>1:00.0</code>.</li>
+<li><strong>C5</strong> ✅ fixed in ff2e2ac — <code>windowClip</code> was a memo copying up to 640 kB per pointer move for a value nothing reads until Calculate; it is <code>getWindowClip()</code> now.</li>
+<li><strong>C6</strong> ✅ fixed in e817385 — the design claimed <code>record.ts</code> passes any <code>InputError</code> through; it keeps <code>undecodable</code> mapped to <code>record-failed</code>, and the design now says so.</li>
+<li><strong>C7</strong> ✅ fixed in e817385 — design §3.1/§3.2/§4 rewritten to match the shipped code (raster + overlay, nearer-edge hit test, <code>waveform/range.ts</code>, eight test files), status updated, and tasks.md now says to scope from <code>git log main..feat/3-waveform-crop</code> rather than its own list.</li>
+<li><strong>C8</strong> ✅ fixed in e817385 — T8 split into a desktop smoke (agent-verified, done) and an open T9 phone pass, carried into section B above.</li>
+<li><strong>C9</strong> ✅ fixed in ff2e2ac — the waveform is rasterised once per peaks/size/theme and composited with one <code>drawImage</code>; the four CSS variables are read once per colour-scheme change instead of four <code>getComputedStyle</code> calls per frame; playback position updates are quantised to ~20 Hz.</li>
+<li><strong>C10</strong> ✅ fixed in 155c786 — one slicing primitive in <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/decode.ts"><code>audio/decode.ts</code></a> with <code>trimClip</code> delegating to it, and the load gate moved there too, so <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/audio/"><code>audio/</code></a> no longer imports from <code>waveform/</code>.</li>
+<li><strong>C11</strong> ⬜ not fixed — docs commit <code>3ea7ecc</code> in <code>~</code> lacks the <code>Co-Authored-By</code> trailer the repo workflow requires. It is unpushed, so an interactive rebase could add it; history rewriting needs the maintainer&#39;s go-ahead, so it is left as is.</li>
+</ul>
+<h2>D. New findings from this round</h2>
+<ul>
+<li><strong>D1</strong> Scrolling mid-drag is now possible: push an edge past the border of the detail view and the view scrolls, so the time under the pointer shifts within the same gesture. This is standard edge-scroll behaviour and the edge keeps following the pointer, but it is the one interaction where the waveform moves while a finger is down. B16 should say whether it feels right on a phone.</li>
+<li><strong>D2</strong> The position line advances in 0.05 s steps (C9). On a narrow window on a wide screen that is ~4 px per step, which may read as slightly steppy. Lower the step or drive the line from a canvas-local <code>requestAnimationFrame</code> if it looks wrong in B17.</li>
+<li><strong>D3</strong> The overview strip has no affordance saying it can be tapped to move the window. Cosmetic, and cheap to fix with a caption once the analysis UI lands.</li>
+<li><strong>D4</strong> <code>getWindowClip</code> is not consumed yet — <code>InputScreen</code> does not destructure it. Phase 4 wires it to Calculate; nothing to do here beyond not forgetting it.</li>
+<li><strong>D5</strong> The long-clip threshold <code>LONG_CLIP_S = 30</code> is a constant derived from 360 px phone width (~12 px/s), so it triggers too late on a narrower screen and too early on desktop. The fix is to derive it from the measured canvas width, which means lifting the width measurement out of <code>WaveformCanvas</code> into <code>WaveformBlock</code>. Deferred to phase <code>8-ui-fixes</code> on 2026-09-10; not a phase 3 blocker.</li>
+</ul>
+<h2>E. Open questions carried from the PRD</h2>
+<ul>
+<li>The 30 s long-clip threshold is settled in the design (11.7 px/s at phone width, verified in B6: a 2 s window is ~23 px and still draggable by the body after C3), but only for that width; making it width-derived is D5, deferred to phase <code>8-ui-fixes</code>.</li>
+<li>Whether the 1 s minimum window is enough for the autocorrelation is still open and belongs to <code>4-analysis</code>, which may raise both <code>MIN_WINDOW_S</code> and <code>MIN_CLIP_S</code> (they are one number in <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/types.ts"><code>audio/types.ts</code></a> now).</li>
+</ul>
+<h2>F. Environment</h2>
+<p>Laptop Chrome through Playwright, uploads only, per the phase-2 decision to
+keep the dev loop on the laptop. The phone needs USB for the microphone
+(localhost via <code>adb reverse</code>), so B14-B18 want a cable, and B19 covers the
+deployed https page after the merge.</p>
+
+</div></body></html>

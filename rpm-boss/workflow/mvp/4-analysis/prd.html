@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD — Analysis</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">4-analysis</a> / prd.md &nbsp;|&nbsp; stages: <b>prd</b> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-analysis
+feature: 4-analysis
+branch: feat/4-analysis
+status: draft
+created: 2026-09-10
+depends_on: [3-waveform-crop]</h2>
+<h1>PRD — Analysis</h1>
+<h2>Goal</h2>
+<p>Turn the cropped window into one RPM number, and produce the combustion
+positions that phase 5 will draw on the waveform.</p>
+<h2>Why</h2>
+<p>This is the feature. Everything before it exists to hand the analysis a clean
+window; everything after it presents the answer. The method is already settled
+and validated offline against seven recordings (<a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/combustion-counts.md"><code>audio/combustion-counts.md</code></a>),
+so this phase is a port with a test suite, not a research project.</p>
+<p>The port is the risky part: an IIR filter, an envelope and an autocorrelation
+written by hand in TypeScript can be subtly wrong and still return a
+plausible-looking number. The fixtures are what stop that, which is why they
+were built in phase 1 rather than here.</p>
+<h2>User stories</h2>
+<ol>
+<li>As a user, I press Calculate and see one RPM number for the window I chose.</li>
+<li>As a user who knows roughly what the engine idles at, I type a range and the
+app stops telling me half or double the real figure.</li>
+<li>As a user whose recording was too noisy to read, I get told so, rather than
+a confident wrong number.</li>
+</ol>
+<h2>Scope</h2>
+<h3>In</h3>
+<ul>
+<li><strong>DSP module</strong> in <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/dsp/"><code>src/dsp/</code></a>, pure functions over <code>Float32Array</code>, no DOM, no
+React, runnable in Node. Ported from the scipy reference in <a href="../../mvp.html"><code>mvp.md</code></a>:
+Butterworth bandpass 60-2000 Hz, full-wave rectify, 150 Hz lowpass envelope,
+autocorrelation per 1 s window over the lag range 8-100 pulses/s, median
+across windows.</li>
+<li><strong>Peak counting</strong> as the cross-check, the reference&#39;s method A
+(<code>distance = 0.6 * sr / rate</code>, <code>prominence = 0.5 * std</code>). It also yields the
+combustion sample positions.</li>
+<li><strong>Result shape:</strong> pulses per second, the derived RPM, and the combustion
+positions in seconds. Phase 5 consumes the positions; nothing draws them yet.</li>
+<li><strong>Four-stroke single only.</strong> RPM = pulses/s x 60 x 2, the two revolutions per
+combustion of a 4-stroke. The factor stays a named constant so the 2-stroke
+preset can be added later without touching the DSP.</li>
+<li><strong>Expected range</strong>, two optional number fields, min and max RPM. When both
+are filled, the estimate is compared against its own half and double, and the
+candidate inside the range wins. Empty fields change nothing.</li>
+<li><strong>Worker:</strong> the analysis runs in a Web Worker so the UI never blocks, with
+the same module imported directly under test.</li>
+<li><strong>Calculate button</strong>, enabled only with a clip loaded, showing a busy state
+while the worker runs.</li>
+<li><strong>Failure path:</strong> when no periodicity is found in the lag range, a message in
+the <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/types.ts"><code>audio/types.ts</code></a> style, kept out of component internals so phase 7 can
+extract it.</li>
+<li><strong>Minimal display:</strong> the number as plain text under the button, deliberately
+unstyled. Phase 5 owns the result view.</li>
+</ul>
+<h3>Out</h3>
+<ul>
+<li>The result view, the large number, the marked waveform (phase 5).</li>
+<li>The 4-stroke / 2-stroke preset toggle, moved to the backlog on 2026-09-10:
+there is no 2-stroke recording to validate against, so shipping the toggle
+would ship an untested path.</li>
+<li>Multi-cylinder presets, firing-order awareness, noise reduction, adaptive
+band selection. All backlog.</li>
+<li>Any change to the crop UI or the <code>AudioClip</code> contract.</li>
+<li>Storing or naming results.</li>
+</ul>
+<h2>Acceptance criteria</h2>
+<ol>
+<li>A Node test runs the DSP module over all seven fixtures in <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/test/fixtures/"><code>test/fixtures/</code></a>
+and every one lands inside its <code>toleranceRpm</code> in <code>expected.json</code>.</li>
+<li>The two estimators agree within 3 % on all seven fixtures, as they do in the
+reference table.</li>
+<li>Unit tests cover each stage as a pure function: filter response, envelope,
+autocorrelation lag pick, peak positions, and the pulses-to-RPM conversion.</li>
+<li>In the browser, loading a fixture, cropping and pressing Calculate shows a
+number matching the test suite for that window, within one second on the
+phone.</li>
+<li>An expected range of 1300-1700 applied to a clip that reads 800 yields
+~1600; with no range, the same clip still reads 800.</li>
+<li>A clip with no engine in it produces the failure message, not a number.</li>
+<li>The DSP module imports nothing from <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/ui/"><code>src/ui/</code></a>, <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/state/"><code>src/state/</code></a> or the DOM.</li>
+<li><code>npm test</code>, <code>npm run lint</code> and <code>npm run build</code> pass.</li>
+</ol>
+<h2>Non-goals and constraints</h2>
+<ul>
+<li>No DSP library. Hand-written, per the stack decision in <a href="../../mvp.html"><code>mvp.md</code></a>.</li>
+<li>The filter must be deterministic across Node and the browser; no reliance on
+<code>AudioContext</code> for filtering.</li>
+<li>Output is one number, never a range. The expected range is an input only.</li>
+<li>Analysis is triggered by Calculate alone. It does not re-run while the crop
+window is dragged.</li>
+</ul>
+<h2>Open questions</h2>
+<ul>
+<li><strong>Is a 1 s window enough for the autocorrelation?</strong> Carried from phase 3,
+section E. <code>MIN_CLIP_S</code> in <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/types.ts"><code>audio/types.ts</code></a> is one constant doing two jobs:
+the smallest crop window, and the gate that rejects a clip at load. They stay
+coupled — a clip too short to fill the smallest window can never be analysed,
+so refusing it at load is better than accepting it and failing at Calculate.
+The plan for the design stage:<ol>
+<li>Truncate the fixtures to 1.0, 1.5, 2.0, 3.0 and 5.0 s and find the
+shortest window that still lands inside tolerance. That measurement sets
+the constant; it may well stay at 1 s. The same sweep answers the other
+half of the question: the reference ran on whole files of 6-16 s and we
+cap at 10 s, so it also shows whether accuracy degrades near the short
+end of the allowed range.</li>
+<li>If it rises, make the too-short message derive from the constant. It is a
+fixed string hardcoding &quot;at least 1 second&quot; today, so raising the number
+silently makes the message lie. Templating it also gives phase 7 an
+interpolation case, which is what a naive extraction pass misses.</li>
+<li>Record the measurement in <code>design.md</code>, not only the number that came out
+of it.
+Known cost: recordings between 1 s and any new floor stop loading at all.
+Against a 10 s recording budget that is a narrow band, and a clip that short
+was never going to give a stable reading.</li>
+</ol>
+</li>
+<li><strong>Does the failure path need a confidence threshold</strong>, or is &quot;no peak in the
+lag range&quot; enough to catch bad audio? Design decides; a tunable threshold
+risks becoming a knob nobody can set.</li>
+</ul>
+
+</div></body></html>

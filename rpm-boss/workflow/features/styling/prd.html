@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD — Styling the app by hand</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">features</a> / <a href="index.html">styling</a> / prd.md &nbsp;|&nbsp; stages: <b>prd</b> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-styling
+feature: styling
+branch: feat/styling
+status: draft
+created: 2026-09-13
+depends_on: [8-ui-overhaul]</h2>
+<h1>PRD — Styling the app by hand</h1>
+<h2>Goal</h2>
+<p>The maintainer can change how the app looks without leaving the component he
+is looking at, in the syntax he already writes every working day.</p>
+<h2>Why</h2>
+<p>The app&#39;s appearance lives in one 242-line stylesheet: 69 rules, a grid of
+named areas, and a set of custom properties that carry the two themes. It was
+written by the agent and it is read by the agent. Changing a gap means finding
+the rule that owns it, and the rule is named after a layout region rather than
+after the thing on screen.</p>
+<p>That is the wrong shape for what comes next. The MVP is shipped and in closed
+testing; what remains is a long tail of small visual changes, and those are the
+ones the maintainer wants to make himself, quickly, without a stage-gated
+round trip.</p>
+<p>The maintainer already does exactly that in the day-job frontend, in Tailwind utilities
+plus a <code>css</code> prop. Two vocabularies for one skill is the tax this feature
+removes.</p>
+<h3>Why not simply copy the day-job stack</h3>
+<p>The day-job app styles with <code>twin.macro</code>, and that package is the part that cannot come
+along:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>twin.macro</code> latest</td>
+<td>3.4.1, published 2024-01-19</td>
+</tr>
+<tr>
+<td>Its peer range</td>
+<td><code>tailwindcss &gt;=3.3.1</code> — Tailwind 3 only</td>
+</tr>
+<tr>
+<td><code>tailwindcss</code> latest</td>
+<td>4.3.3</td>
+</tr>
+<tr>
+<td><code>babel-plugin-macros</code>, which it requires</td>
+<td>3.1.0, published 2023-04-29</td>
+</tr>
+</tbody></table>
+<p>Adopting it would pin a brand-new app to a Tailwind major that is already
+superseded, and would add a Babel macro pass to a Vite build that has no other
+reason to run one. That stack is pinned there today; there is no sense in
+importing the same block on day one.</p>
+<p><code>styled-components</code> itself is <em>not</em> the stale part — 6.5.3 was published
+2026-09-08. Its <code>css</code> prop, however, needs <code>babel-plugin-styled-components</code>,
+and the design-stage spike found that unusable on this toolchain: Vite 8&#39;s
+React plugin no longer runs Babel at all, and the plugin refuses Babel 8 and
+throws on it when forced. See <code>design.md</code>. So the <code>css</code> prop comes from
+<code>@emotion/react</code>, which needs no Babel — the syntax below is written as it
+actually compiles.</p>
+<h2>User stories</h2>
+<ol>
+<li>As the maintainer, I change a button&#39;s padding by editing the button, not by
+finding a rule in a shared stylesheet.</li>
+<li>As the maintainer, I write utility classes with the same names and the same
+arbitrary-value syntax I use day to day, without looking anything up.</li>
+<li>As the maintainer, when a utility cannot express something — a computed
+height, a gradient, a filter — I write real CSS in place, as CSS text, not
+as a JavaScript object.</li>
+<li>As the maintainer, I make either of those conditional on props or state.</li>
+<li>As a user, nothing about the app looks or behaves differently afterwards.</li>
+<li>As an Urdu reader, the layout still mirrors.</li>
+</ol>
+<h2>The syntax, as it should end up</h2>
+<p>Utilities go in <code>className</code>, real CSS goes in <code>css</code>, and the two never mix:</p>
+<pre><code class="language-jsx">import { css } from &#39;@emotion/react&#39;
+
+&lt;button
+  className=&quot;min-h-12 flex-1 inline-flex items-center justify-center gap-2 rounded-[10px] px-5&quot;
+  css={css`
+    background: var(--color-btn);
+    color: var(--color-fg);
+  `}
+&gt;
+</code></pre>
+<p>Both sides take conditions:</p>
+<pre><code class="language-jsx">&lt;button
+  className={clsx(
+    &#39;min-h-12 inline-flex items-center justify-center gap-2 rounded-[10px]&#39;,
+    recording ? &#39;bg-error text-white&#39; : &#39;bg-btn&#39;,
+    iconOnly ? &#39;w-12 flex-none p-0&#39; : &#39;flex-1 px-5&#39;,
+  )}
+  disabled={busy}
+  css={css`
+    ${busy ? &#39;opacity: 0.5; cursor: default;&#39; : &#39;cursor: pointer;&#39;}
+  `}
+&gt;
+</code></pre>
+<p>For comparison, the same element today — <code>src/index.css:156</code>, reached from
+<code>RecordButton.tsx</code> through three class names:</p>
+<pre><code class="language-css">.btn {
+  min-height: 48px; padding: 0 20px; font-size: 1rem; border: 0; border-radius: 10px;
+  background: var(--btn); color: var(--fg); cursor: pointer; flex: 1 1 auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn-rec { background: var(--error); color: #fff; }
+.btn-icon { flex: 0 0 auto; inline-size: 48px; padding: 0; }
+</code></pre>
+<p>And the shape this feature explicitly does <strong>not</strong> want, which is what a
+Tailwind-only answer would force:</p>
+<pre><code class="language-jsx">// Rejected: CSS as a JavaScript object.
+&lt;div style={{ height: `${h}px`, borderLeft: `2px solid ${tone}` }}&gt;
+</code></pre>
+<h2>Requirements</h2>
+<h3>Must</h3>
+<ol>
+<li><p><strong>Utility classes in <code>className</code></strong>, with Tailwind&#39;s vocabulary and its
+arbitrary-value syntax (<code>h-[100px]</code>, <code>bg-[var(--btn)]</code>).</p>
+</li>
+<li><p><strong>A <code>css</code> prop taking CSS text</strong>, as a template literal, with interpolation.
+Not a style object, and not a JS-object-shaped API wearing a <code>css</code> name. A
+<code>css</code> tag on the template is acceptable — the day-job code imports and
+writes one — as long as what sits inside it is CSS.</p>
+</li>
+<li><p><strong>Both conditional</strong> on props and state, in ordinary JavaScript.</p>
+</li>
+<li><p><strong>No Babel macro</strong>, and no dependency pinned to a superseded major of
+anything.</p>
+</li>
+<li><p><strong>The app looks the same when it is done.</strong> This is a refactor. Any visible
+change is a defect, not an improvement, and is judged against the phase 8
+screenshots in <code>~/git/rpm-boss/store/</code>.</p>
+</li>
+<li><p><strong>Both themes keep working</strong>, including the <code>data-theme</code> attribute that
+<code>theme.ts</code> stamps and the <code>prefers-color-scheme</code> rules behind it.</p>
+</li>
+<li><p><strong>The CSS custom properties survive as the single source of colour.</strong>
+<code>usePalette</code> reads <code>--muted</code>, <code>--bg</code>, <code>--accent</code>, <code>--dim</code> off the root
+element to paint the waveform canvases; the canvas has no class names and
+cannot be styled by utilities. Whatever the tokens are declared in, that
+read must keep working.</p>
+</li>
+<li><p><strong>Right-to-left still mirrors.</strong> The stylesheet uses logical properties in
+23 places (<code>inline-size</code> 11, <code>block-size</code> 8, <code>margin-inline</code> 4,
+<code>padding-inline</code> 1, <code>padding-block</code> 2) precisely so the Urdu build lays out
+without a second stylesheet. Whatever replaces them must be logical too.</p>
+</li>
+<li><p><strong>The Android build still builds and installs</strong>, and the web bundle does not
+grow by more than 15 kB gzipped. Today it is 85 kB.</p>
+</li>
+<li><p><strong>The existing app is converted, not just enabled for new work.</strong> Every
+component moves to the new syntax; the layout-region and component classes
+in <code>index.css</code> go away with it. A half-converted app would leave two
+vocabularies instead of removing one, which is the problem this feature
+exists to solve.</p>
+</li>
+<li><p><strong>No style statement is written twice.</strong> A class used in several places
+today — <code>.btn</code> across five components, <code>.mono</code>, <code>.muted</code>, <code>.wave</code> — is
+correct as it stands: it says &quot;these are the same thing&quot;. Spraying the same
+utility string across five call sites would lose that and make the next
+change a search-and-replace. Where styling is genuinely shared it is
+extracted, the way the day-job app does it: a styled component, a wrapper, or a
+small shared component that owns the styling and is used by name. Which of
+those, per case, is a design-stage call.</p>
+</li>
+<li><p><strong>The palette lives in one file of its own</strong>, separate from any component
+and from the global stylesheet. It holds the colours that are <em>shared</em> —
+the ones that carry a meaning across the app and that a theme switch has to
+change together. Both themes are defined there together, so the pair can be
+read side by side; that is how the light theme&#39;s <code>--error</code> and <code>--dim</code> got
+their values, and they are not inversions of the dark ones.</p>
+<p>A one-off colour used in one place is written in place, in whatever form
+suits — hex, <code>#rrggbbaa</code>, <code>rgb()</code>, <code>rgba()</code>, <code>color-mix()</code>. It does not
+have to earn a name in the palette first. The palette is for what is
+shared, not a gate on the colour picker.</p>
+</li>
+<li><p><strong>Palette values are usable from both styling routes, by name.</strong> In the
+<code>css</code> block and in a utility class, without importing anything into the
+component and without a second name for the same colour:</p>
+<pre><code class="language-jsx">&lt;span
+  className=&quot;text-muted&quot;
+  css={css`
+    border-left: 2px solid var(--color-accent);
+  `}
+/&gt;
+</code></pre>
+<p>They must also remain readable at runtime off the root element, because
+that is how the canvas gets them (requirement 7). A palette that only
+exists at build time, as JavaScript constants, fails this.</p>
+</li>
+</ol>
+<h3>Should</h3>
+<ol start="14">
+<li>The utility names should match the day-job app&#39;s where Tailwind offers a choice, so
+that muscle memory carries over.</li>
+<li>Where a rule in <code>index.css</code> carries a comment explaining <em>why</em> a number is
+what it is — the <code>--col</code> clamp, the two <code>--dim</code> values, the 48 px hit
+target — that reasoning moves with it rather than being dropped. Those
+comments are the most valuable thing in the file.</li>
+</ol>
+<h3>Won&#39;t</h3>
+<ul>
+<li><strong>Not a redesign.</strong> No new colours and no new spacing scale. New components
+only where requirement 11 calls for one.</li>
+<li><strong>Not a design system.</strong> Components are extracted where they remove real
+duplication (requirement 11), never speculatively: no variant API invented
+for a single caller, no Storybook, no component library. The app has fourteen
+components and does not need one.</li>
+<li><strong>Not a <code>tw</code> prop.</strong> Utilities live in <code>className</code>; the split between the two
+props is deliberate and is what makes the <code>css</code> block plain CSS.</li>
+<li><strong>Not the live POC.</strong> <a href="https://github.com/AregShahbazian/rpm-boss/tree/poc/live-rpm"><code>poc/live-rpm</code></a> keeps its own styles and is converted
+only if it becomes a feature.</li>
+<li><strong>No change to the analysis, the audio path, i18n, or the Capacitor shell.</strong></li>
+</ul>
+<h2>Acceptance criteria</h2>
+<ol>
+<li><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/index.css"><code>src/index.css</code></a> holds only what genuinely belongs in a global sheet —
+<code>body</code>, and anything the canvas needs. The theme tokens have moved to the
+palette file; every rule that styles a component has moved into that
+component.</li>
+<li>Every colour that more than one component uses, or that changes with the
+theme, is named in the palette file and used from there — no component
+repeats its literal value.</li>
+<li>All 57 existing <code>className</code> sites are either utilities or gone; no component
+references a layout-region class such as <code>.area-wave</code> that is defined
+somewhere else.</li>
+<li>No utility string that describes a shared thing appears at more than one
+call site. Grep for the button, the monospace figures and the waveform box:
+each is written once, in one place, and used by name.</li>
+<li><code>npm run build</code>, <code>npm run lint</code> and the 324 tests pass unchanged.</li>
+<li>Side by side with the phase 8 screenshots, at 360×640, 390×844 and in
+landscape, the app is pixel-equivalent in both themes.</li>
+<li>The Urdu build still mirrors, checked on the same three sizes.</li>
+<li>The waveform, the crop window and the combustion marks still draw in the
+right colours after a theme switch, with no reload.</li>
+<li>A release APK installs and runs on the phone.</li>
+<li>The maintainer changes one visible thing — a colour, a gap, a radius —
+   without opening a stylesheet, and without asking the agent.</li>
+</ol>
+<h2>Open questions for the design stage</h2>
+<p>All four are answered in <code>design.md</code>, three of them by a built spike rather
+than by argument:</p>
+<ul>
+<li><strong>Which <code>css</code> prop</strong> — <code>@emotion/react</code>. <code>styled-components</code> was the
+expectation here and lost on evidence: its <code>css</code> prop needs a Babel plugin
+that refuses Babel 8, in a build that no longer runs Babel.</li>
+<li><strong>The palette&#39;s form</strong> — Tailwind 4 <code>@theme</code> in its own file. One declaration
+yields both <code>var(--color-accent)</code> for a <code>css</code> block and <code>bg-accent</code> as a
+utility, and the <code>data-theme</code> override reaches both.</li>
+<li><strong>Runtime cost on the waveform screen</strong> — acceptable, with one rule: no
+per-frame value is ever interpolated into a <code>css</code> block. Nothing in the app
+currently needs to.</li>
+<li><strong><code>clsx</code> or a local helper</strong> — <code>clsx</code>, at 239 bytes.</li>
+</ul>
+<p>Measured cost of the whole change: <strong>+7.1 kB gzipped</strong>, against the 15 kB
+budget in requirement 9.</p>
+
+</div></body></html>

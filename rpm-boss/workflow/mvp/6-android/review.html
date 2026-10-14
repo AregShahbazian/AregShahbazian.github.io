@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review — Android app</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">6-android</a> / review.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <b>review</b></nav>
+<hr>
+<h2>id: rb-android
+feature: 6-android
+branch: feat/6-android
+stage: merged
+status: closed 2026-09-10 — B1-B15 confirmed by the maintainer
+created: 2026-09-10
+commits: e55a6c7..2471aad (7 on the branch, unpushed)</h2>
+<h1>Review — Android app</h1>
+<p>Review only: findings and a checklist, no fixes. Approved fixes land on the
+branch as <code>fix(...): ... [rb-android]</code>.</p>
+<h2>A. Automated</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm test</code></td>
+<td>172 passed, 18 files</td>
+</tr>
+<tr>
+<td><code>npm run lint</code></td>
+<td>clean</td>
+</tr>
+<tr>
+<td><code>tsc -b</code> + <code>npm run build</code></td>
+<td>clean; the browser build is unchanged by this phase</td>
+</tr>
+<tr>
+<td><code>npm run android:build</code></td>
+<td>release APK, 3.2 MB</td>
+</tr>
+<tr>
+<td><code>apksigner verify</code></td>
+<td>signed with the <code>rpmboss</code> upload key</td>
+</tr>
+</tbody></table>
+<h2>B. Manual checklist</h2>
+<p>B1-B11 were driven by Claude on the maintainer&#39;s phone over adb: install,
+launch, taps, screen dumps and screenshots. Claude cannot hear, so anything
+about how a recording <em>sounds</em> was the maintainer&#39;s. All fifteen confirmed on
+2026-09-10.</p>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>B1</strong> (agent-verified) The signed APK installs and opens to the app (AC 2).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B2</strong> (agent-verified) The APK is signed with the dedicated upload key, fingerprint matching the private signing doc (AC 8).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B3</strong> (agent-verified) The permission prompt reads &quot;Allow <strong>RPM Boss</strong> to record audio?&quot; and granting it starts the countdown (AC 7, first half).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B4</strong> (agent-verified) The plugin logs <code>source=UNPROCESSED rate=16000 deviceClaimsUnprocessed=true</code>. This phone gives the raw path, at the app&#39;s own sample rate, so nothing is resampled on the device (AC 4).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B5</strong> (agent-verified) A ten second recording of laptop playback across the room reads <strong>1640 rpm, 104 marked</strong>, and the marks begin where the playback did rather than at the start of the take (AC 3, AC 5).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B6</strong> (agent-verified) Ambient room noise is refused with &quot;Couldn&#39;t hear a steady engine in that section&quot;, not a number.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B7</strong> (agent-verified) Record then immediately Stop reports the clip as too short, and the next recording starts normally — the microphone is released rather than left held (C2 fix).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B8</strong> (agent-verified) A second recording after that opens <code>UNPROCESSED</code> again, so nothing is stuck busy.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B9</strong> (agent-verified) The file picker opens from Upload. Claude could not drive it far enough to choose a file; <strong>B13</strong> covers actually loading one (AC 6).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B10</strong> (agent-verified) The result survives a trip out to the picker and back.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B11</strong> (agent-verified) <code>npm test</code>, lint and the web build all still pass, and nothing in <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/"><code>src/</code></a> requires Capacitor to be present (AC 10).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B12</strong> Phone: a recording of the real engine sounds right and holds its level for the whole take, and the number matches what the engine is doing.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B13</strong> Phone: choosing a file from the picker loads and analyses it (AC 6).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B14</strong> Phone: denying the microphone shows &quot;Microphone access was denied&quot;, and uploads still work afterwards (AC 7, second half).</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>B15</strong> Phone: the icon looks right on the launcher, under both a round and a square mask (AC 9).</li>
+</ul>
+<h2>C. Code-review findings, disposition</h2>
+<p>Run by Claude at the maintainer&#39;s standing permission, at high effort. Seven
+findings, all fixed in <code>9c0e64a</code>, and the ones reachable from a phone
+re-verified afterwards. The maintainer was away, so fixing all seven was
+Claude&#39;s call; any of them can be reversed.</p>
+<ul>
+<li><p><strong>C1</strong> ✅ fixed — Capacitor keeps a rejection&#39;s message and its code apart, and the plugin put the app&#39;s code in the code field while the web side read the message. A denied microphone came back as &quot;Recording failed. Try again.&quot; with no hint that a permission was the problem. Confirmed against <code>PluginCall.java</code> and <code>CapacitorException</code> before fixing.</p>
+</li>
+<li><p><strong>C2</strong> ✅ fixed — pressing Stop while the microphone was still opening left the native recorder running with nobody to end it: the microphone stayed hot and every later take was refused as busy until the app was killed. Verified on the phone in B7 and B8.</p>
+</li>
+<li><p><strong>C3</strong> ✅ fixed — the capture thread read the plugin&#39;s own fields, so tearing a take down raced it, and on activity destroy released the <code>AudioRecord</code> out from under a thread still inside <code>read()</code>. Each take now owns its recorder, its buffer and its own flag, handed to the thread as a final local, and the join is unconditional.</p>
+</li>
+<li><p><strong>C4</strong> ✅ fixed — a negative <code>read()</code>, which is what a phone call or another app taking the microphone looks like, was ignored, so the loop span a core until the hard stop and then returned a silently truncated take. It ends the take and reports <code>no-audio</code>.</p>
+</li>
+<li><p><strong>C5</strong> ✅ fixed — <code>org.gradle.java.home</code> pointed at this machine&#39;s JDK in a tracked file, so any other clone would fail before the first task. The reviewer suggested <code>local.properties</code>; that is wrong, Gradle does not read it for this, so the requirement is documented in the README instead.</p>
+</li>
+<li><p><strong>C6</strong> ✅ fixed — the build comment claimed a fresh clone builds, but the Capacitor-generated pieces are not committed. <code>npm run android:sync</code> makes them, and the README says so.</p>
+</li>
+<li><p><strong>C7</strong> ✅ fixed — the ten second cap was a JS timer, and Android suspends those when the activity stops, so switching apps mid-recording would have held the microphone with an unbounded buffer. The plugin enforces the cap too.</p>
+</li>
+<li><p><strong>C8</strong> ✅ fixed in <code>2471aad</code> — reported by the maintainer from the phone: after denying the microphone and dismissing the warning, Play did nothing until the file was loaded again. Pressing Record disposed the player straight away, and a recording that never started never replaced it. Playback is stopped now rather than torn down, and <code>setClip</code> disposes the player when a recording actually arrives. Reproduced in Chrome with <code>getUserMedia</code> stubbed to refuse before fixing, and confirmed by the maintainer on the phone afterwards.</p>
+</li>
+<li><p><strong>C9</strong> ✅ done at the maintainer&#39;s request — the page heading is gone. It was the last place still reading <code>rpm-boss</code> while the app is called RPM Boss, and the launcher, the tab and the app switcher all carry the name anyway. This closes <strong>E2</strong> below.</p>
+</li>
+</ul>
+<h2>D. What changed outside this phase</h2>
+<ul>
+<li><strong>D1</strong> <code>record.ts</code> now picks between the native recorder and the audio worklet by platform. Its signature is unchanged and everything above it is untouched.</li>
+<li><strong>D2</strong> <code>package.json</code> gained <code>android:sync</code> and <code>android:build</code>.</li>
+<li><strong>D3</strong> A privacy policy is live at <code>https://mby4m.github.io/legal/rpmboss/</code>, sourced from <code>~/git/legal/rpmboss/</code>, and linked from that site&#39;s index.</li>
+<li><strong>D4</strong> The private signing doc records the alias and fingerprints; the keystore was backed up off-machine.</li>
+<li><strong>D5</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/scripts/apk.sh"><code>scripts/apk.sh</code></a>, <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/scripts/install.sh"><code>scripts/install.sh</code></a> and <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/scripts/uninstall.sh"><code>scripts/uninstall.sh</code></a> build, install and remove the app. They find a JDK 21 themselves, check for a phone before spending a build, and say which microphone source to look for afterwards.</li>
+<li><strong>D6</strong> The page heading is gone, from the website as well as the app.</li>
+</ul>
+<h2>E. New findings from this round</h2>
+<ul>
+<li><strong>E1</strong> The screen shows &quot;Recording…&quot; and a Stop button while the permission dialog is still up, and the countdown sits at 0.0 until it is answered. Harmless but it claims something that has not started. Not fixed.</li>
+<li><strong>E2</strong> <del>The heading still reads <code>rpm-boss</code></del> — removed at the maintainer&#39;s request; see <strong>C9</strong>.</li>
+<li><strong>E6</strong> The playback bug in <strong>C8</strong> existed on the website too, and had done since phase 2. It only surfaced now because the phone is where a microphone actually gets denied.</li>
+<li><strong>E3</strong> Claude cannot judge audio, so B5 proves the pipeline and not the quality. A recording that captured almost nothing would still produce a plausible number if the little it caught was periodic. B12 is the real test.</li>
+<li><strong>E4</strong> <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/android/"><code>android/</code></a> is committed but the Capacitor-generated pieces inside it are not, so the tree is neither fully generated nor fully checked in. This is the normal Capacitor arrangement and the README now documents the sync step, but it is a seam worth knowing about.</li>
+<li><strong>E5</strong> The native recorder has no automated test. <code>pcm16ToFloat</code> is covered; the plugin itself is only exercised by hand on a device. An instrumented test would need a device in CI, which this project does not have.</li>
+</ul>
+<h2>F. Open questions carried from the PRD</h2>
+<ul>
+<li><strong>Does this phone grant <code>UNPROCESSED</code>?</strong> Yes, and at 16 kHz. Answered in B4.</li>
+<li><strong>Does the web recorder stay?</strong> Yes. The browser is the development loop, and a browser build that cannot record would cost more than the second implementation does.</li>
+<li><strong>What rate does the native path deliver?</strong> 16 kHz, the app&#39;s own, so there is no resampling on the phone.</li>
+</ul>
+<h2>G. Environment</h2>
+<p>The maintainer&#39;s phone over USB, driven by adb. Claude installed, launched,
+tapped, read the screen and took screenshots; it cannot hear, and could not get
+far enough into the system file picker to choose a file.</p>
+
+</div></body></html>

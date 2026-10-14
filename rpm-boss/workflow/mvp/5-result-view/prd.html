@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD — Result view</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">5-result-view</a> / prd.md &nbsp;|&nbsp; stages: <b>prd</b> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-result-view
+feature: 5-result-view
+branch: feat/5-result-view
+status: draft
+created: 2026-09-10
+depends_on: [4-analysis]</h2>
+<h1>PRD — Result view</h1>
+<h2>Goal</h2>
+<p>Show the answer, and show enough of the working to be believed.</p>
+<h2>Why</h2>
+<p>Phase 4 produces the number and prints it as a line of small text under a
+button. That was deliberate, enough to check against the test suite and no
+more. What the user needs is different: one figure they can read while
+crouching next to a running engine, and a picture that lets them judge whether
+the app heard what they heard.</p>
+<p>The picture is not decoration. The method fails by a factor of two, and a
+marked waveform makes that visible at a glance: markers on every second
+combustion, or two markers per combustion, are obvious to a human and invisible
+in a number. It is the cheapest confidence check the app can offer, and the
+reason <code>pulseTimesS</code> was produced in phase 4 rather than left to this phase.</p>
+<h2>User stories</h2>
+<ol>
+<li>As a user standing over an engine, I read the RPM at arm&#39;s length without
+putting my face near the phone.</li>
+<li>As a user who is not sure the app got it right, I look at the marks on the
+waveform and see whether they land on the beats I can hear.</li>
+<li>As a user whose reading looks wrong, I move the crop and try again without
+losing my place.</li>
+<li>As a user whose recording was unreadable, I see why, with the crop still
+there to adjust.</li>
+</ol>
+<h2>Scope</h2>
+<h3>In</h3>
+<ul>
+<li><strong>The number</strong>, large and plain, in whole RPM. It is the screen&#39;s subject,
+not a line of status text.</li>
+<li><strong>The marked waveform</strong>: the analysed window redrawn, with a mark at every
+time in <code>pulseTimesS</code>. Same drawing code path as the crop waveform, without
+the handles and without the crop shading.</li>
+<li><strong>A quiet note when the expected range moved the answer</strong> an octave, so a
+corrected figure is never mistaken for a measured one.</li>
+<li><strong>The failure message in place of the number</strong>, with the crop and its
+controls untouched, so the next attempt costs one drag.</li>
+<li><strong>Clearing on change.</strong> Phase 4 already drops the result when the clip or the
+window changes; the view follows it, including the marks.</li>
+<li><strong>Portrait phone layout</strong> first. The number and the marked waveform both fit
+above the fold at 360 px wide with a 10 s window loaded.</li>
+</ul>
+<h3>Out</h3>
+<ul>
+<li>A gauge, a dial, or any skeuomorphic tachometer. Backlog.</li>
+<li>Saving, naming or sharing results. Backlog.</li>
+<li>Showing confidence as a figure. It is a threshold, not a score, and putting a
+number on it invites the user to interpret it.</li>
+<li>Zooming or scrubbing the marked waveform. It shows at most 10 s.</li>
+<li>Any change to the DSP, the analysis contract, or the crop interaction.</li>
+</ul>
+<h2>Acceptance criteria</h2>
+<ol>
+<li>Each of the seven fixtures, analysed at its default window, shows a number
+matching the test suite and marks whose count is within 5 % of
+<code>pulsesPerS * windowLength</code>.</li>
+<li>The marks line up with the envelope peaks, not with an arbitrary grid: on a
+synthetic clip of a known rate the mark times are within 10 ms of the pulses.</li>
+<li>At 360 px wide the number and the marked waveform are both visible without
+scrolling, with a 10 s window loaded.</li>
+<li>Moving the crop window clears the number and the marks together.</li>
+<li>An unreadable clip shows the failure message where the number would be, and
+leaves the crop, the range fields and Calculate usable.</li>
+<li>A result corrected by the expected range says so.</li>
+<li>The number is legible in both colour schemes and does not reflow when it
+changes from three digits to four.</li>
+<li><code>npm test</code>, <code>npm run lint</code> and <code>npm run build</code> pass.</li>
+</ol>
+<h2>Non-goals and constraints</h2>
+<ul>
+<li>Canvas 2D and hand-drawn, per the stack. No chart library.</li>
+<li>The marked waveform reuses <code>computePeaks</code> from phase 3 rather than growing a
+second way to reduce samples to columns.</li>
+<li>No new state. The view renders what <code>useAnalysis</code> already holds.</li>
+<li>Strings stay out of deep component internals, for phase 7.</li>
+</ul>
+<h2>Open questions</h2>
+<ul>
+<li><strong>Does the marked waveform replace the crop view or sit below it?</strong> Replacing
+it is calmer and halves the vertical space; keeping both makes &quot;move the crop
+and try again&quot; a single gesture. Decide in design, from what fits at 360 px.</li>
+<li><strong>How do 130 marks stay legible?</strong> Ten seconds at 13 pulses per second is a
+mark every 2.7 px at phone width. They may need to be ticks along an edge
+rather than full-height lines, or to thin out below some spacing. Decide in
+design, measured at 360 px rather than guessed.</li>
+<li><strong>Does the octave note need dismissing?</strong> It is one line and it is important;
+leaning towards no.</li>
+</ul>
+
+</div></body></html>

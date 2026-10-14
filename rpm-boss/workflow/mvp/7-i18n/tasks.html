@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasks — Languages</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">7-i18n</a> / tasks.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <b>tasks</b> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-i18n
+feature: 7-i18n
+branch: feat/7-i18n
+status: draft
+created: 2026-09-10</h2>
+<h1>Tasks — Languages</h1>
+<p>Commit subjects carry <code>[rb-i18n]</code>. Each task ends green on <code>npm test</code> and
+<code>npm run lint</code>.</p>
+<ul>
+<li><strong>T1</strong> Rewrite the English strings in place, per the table in <code>design.md</code> §1,
+before any layer exists. One commit, so the wording change is reviewable on
+its own rather than buried in an extraction.</li>
+<li><strong>T2</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/i18n/en.ts"><code>src/i18n/en.ts</code></a> and the <code>Messages</code> type: every string as a key, with a
+note beside each saying what the user just did.</li>
+<li><strong>T3</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/i18n/index.ts"><code>src/i18n/index.ts</code></a>: <code>t()</code>, the context and provider, <code>setLanguage</code>,
+<code>localStorage</code> under <code>rpm-boss.language</code>, and <code>{key}</code> interpolation.</li>
+<li><strong>T4</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/i18n/languages.ts"><code>src/i18n/languages.ts</code></a>: the seventeen, each with its code, its own
+name in its own script, and an <code>rtl</code> flag that only Urdu sets.</li>
+<li><strong>T5</strong> Detection: stored choice, then <code>navigator.languages</code> exact, then base
+tag, then English, with <code>tl</code> mapped to <code>fil</code>. Tests.</li>
+<li><strong>T6</strong> The duration through <code>Intl.NumberFormat</code> with <code>style: &#39;unit&#39;</code>, and the
+too-short and too-short-window messages rebuilt around one slot. Tests at 1, 2
+and 3 seconds in English, Russian, Indonesian and Thai.</li>
+<li><strong>T7</strong> Swap every component over to <code>t()</code>. <code>StatusLine</code>, <code>UploadButton</code>,
+<code>RecordButton</code>, <code>Player</code>, <code>RangeFields</code>, <code>InputScreen</code>, <code>ResultView</code>,
+<code>octave.ts</code>, and the two error tables.</li>
+<li><strong>T8</strong> <code>strings.test.ts</code>: no bare user-facing literal left in <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/ui/"><code>src/ui/</code></a>,
+<a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/audio/"><code>src/audio/</code></a> or <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/dsp/"><code>src/dsp/</code></a>. <strong>The gate</strong>: nothing below starts until it is
+green.</li>
+<li><strong>T9</strong> The picker: a native <code>&lt;select&gt;</code> after the source buttons, sorted with
+<code>Intl.Collator</code> over the written names.</li>
+<li><strong>T10</strong> Translate. Sixteen files, each with a header saying no native speaker
+has reviewed it. RPM Boss and <code>rpm</code> stay untranslated.</li>
+<li><strong>T11</strong> <code>messages.test.ts</code>: same keys everywhere, nothing left in English by
+accident, no <code>{</code> surviving formatting.</li>
+<li><strong>T12</strong> Playwright pass in laptop Chrome: each language renders, the picker
+changes the screen and survives a reload, the longest languages do not break
+the button rows, and Urdu reads correctly inside a left-to-right layout.</li>
+<li><strong>T13</strong> Android pass: install, check the device language is picked up, and
+confirm the native picker appears in the phone&#39;s own language.</li>
+<li><strong>T14</strong> <code>review.md</code> for the phase.</li>
+</ul>
+<p>Scope check before calling the phase done: <code>git log main..feat/7-i18n</code>.</p>
+
+</div></body></html>

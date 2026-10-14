@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tachometer range, redline, and the detector's limits</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../index.html">workflow docs</a> / <a href="index.html">discussions</a> / 2026-09-14-tacho-range-and-detection-limits.md</nav>
+<h1>Tachometer range, redline, and the detector&#39;s limits</h1>
+<p><em>2026-09-14. Feature: realtime tachometer (<code>feat/realtime-tacho</code>). Follows
+<a href="2026-09-14-realtime-tacho-layout-and-viz-libs.html">the layout and visualization-library discussion</a>.</em></p>
+<h2>Summary</h2>
+<p>With the gauge to be hand-drawn, it needs a scale, and until there are
+per-vehicle presets that scale has to suit every user. The question turned out
+to be less about what a motorcycle does than about what the estimator can say:
+<code>autocorr.ts</code> searches 8–100 pulses/s, which with <code>REVS_PER_PULSE = 2</code> is
+960–12,000 rpm, so the dial&#39;s honest span was already decided by a pair of
+constants nobody had looked at in product terms. Both ends were then
+re-examined. The ceiling is arbitrary and should follow the gauge rather than
+lead it — one <code>MAX_RPM</code> the detector derives its rate limit from, so the app can
+never compute a number it cannot draw. The floor turned out to be a floor of
+convenience: all seven ground-truth clips idle well above 960, but a Royal
+Enfield idles at 800–1,000, a mistuned bike hunting at 600–700 is precisely the
+case someone opens this app for, and a half-speed generator sits at 1,500 or
+1,800. The floor moves to <code>MIN_RATE = 5</code>, or 600 rpm, which still holds five
+periods inside the 1 s analysis window.</p>
+<h2>Key conclusions</h2>
+<ul>
+<li><strong>Gauge scale: 0 to <code>MAX_RPM</code></strong>, with 12,000 the working value — it covers the
+110–155 cc singles the app is aimed at (Click, Sniper, Raider redline at
+9.5–11 k) and nothing sold in that class goes past it.</li>
+<li><strong><code>MAX_RPM</code> is the single source of truth.</strong> <code>MAX_RATE</code> is derived from it
+(<code>MAX_RPM / 60 / REVS_PER_PULSE</code>), not stated independently, so the estimator
+can never return a value the dial cannot show.</li>
+<li><strong>Gauge minimum is 0 rpm</strong>; the detection minimum is not, and cannot be. A
+rate of 0 is an infinite period, and <code>WINDOW_S = 1</code> means the window has to
+hold two or three periods for autocorrelation to find one.</li>
+<li><strong><code>MIN_RATE</code> moves from 8 to 5</strong> — 960 rpm to 600 rpm. Five periods still fit
+the 1 s window. 960 was never a measured limit, only the bottom of the
+ground-truth set.</li>
+<li><strong>Redline starts at 9,000 rpm</strong> by default, chosen conservatively: warning a
+little early costs less than missing a bike that spins to 11 k.</li>
+<li><strong>The dial reads nothing below the detection floor</strong>, rather than showing a
+fake zero.</li>
+</ul>
+<h2>Open questions</h2>
+<ul>
+<li>Idle tuning happens at 1,300–1,800 rpm, which is one tick off the stop on a
+12,000 rpm dial — the needle barely moves where the app is most used. Two
+scales? A compressed lower region? Not resolved.</li>
+<li>Should the redline follow the expected-range fields when the user has filled
+them, instead of the 9,000 default?</li>
+<li>Generators at 1,800 rpm (60 Hz, PH) — does the dial acknowledge them, or is it
+bikes-first?</li>
+<li>Below the floor, does the live dial read nothing or hold the last value greyed
+out?</li>
+<li><code>resolveOctave</code> now has a wider band to be wrong in: with a 600 rpm floor, a
+1,200 rpm idle has a half-octave that is no longer out of bounds.</li>
+</ul>
+<h2>Ideas to realize</h2>
+<ul>
+<li>Introduce a <code>MAX_RPM</code> constant and derive <code>MAX_RATE</code> from it, so no computed
+value can fall outside what the gauge can display.</li>
+<li>Lower <code>MIN_RATE</code> from 8 to 5 (600 rpm), and check every test asserting the
+960 rpm boundary.</li>
+<li>Record a deliberately low idle — choke off, idle screw backed out — as ground
+truth before trusting the new floor.</li>
+<li>Default the gauge to 0–12,000 rpm with major ticks every 1,000 and a redline
+arc from 9,000.</li>
+<li>Grey the sub-floor region of the dial so it is visibly a region the app cannot
+read, not a region where the engine is stopped.</li>
+<li>Let the redline start follow the expected-range fields when they are filled
+(ties to the backlog&#39;s &quot;expected-range presets per vehicle&quot;).</li>
+<li>Revisit the idle-resolution problem: a second, lower scale or a non-linear
+lower region so 1,300–1,800 rpm is readable.</li>
+</ul>
+
+</div></body></html>

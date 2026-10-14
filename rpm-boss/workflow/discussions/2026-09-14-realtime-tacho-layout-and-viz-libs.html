@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Realtime tachometer — layout, and whether to use a visualization library</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../index.html">workflow docs</a> / <a href="index.html">discussions</a> / 2026-09-14-realtime-tacho-layout-and-viz-libs.md</nav>
+<h1>Realtime tachometer — layout, and whether to use a visualization library</h1>
+<p><em>2026-09-14. Feature: realtime tachometer (backlog → <code>feat/realtime-tacho</code>).</em></p>
+<h2>Summary</h2>
+<p>The session opened the &quot;realtime tachometer&quot; backlog item, built the layout the
+feature will live in, and then asked whether the two things that fill it — the
+gauge and the live waveform — should come from a library. The layout landed
+first: the idle status sentence was deleted, a <code>LiveStage</code> placeholder now takes
+all the space under the source row when nothing is loaded, and in landscape it
+occupies the column the waveform has when a clip <em>is</em> loaded, so the screen does
+not change shape when a recording arrives. The control column was resized to its
+contents in the process, because Record lost its label and four icon buttons need
+a third of the clamp that was reserved for two labelled ones. On the library
+question the answer was homegrown for both, and the reasoning is the interesting
+part: every mainstream React gauge is a d3 + SVG component that re-renders
+through React per value, which is the wrong shape for a 30–60 fps needle in a
+Capacitor WebView and several times the size of the whole current bundle.</p>
+<h2>Key conclusions</h2>
+<ul>
+<li><strong>The gauge is hand-drawn on canvas.</strong> A tachometer is arcs, ticks and a
+needle — roughly a hundred lines against the 2D context, with the palette
+already readable via <code>usePalette</code> and sizing via <code>useElementSize</code>. The three
+candidates were <code>react-gauge-component</code> (depends on full <code>d3</code> ^7, the most
+customizable of them), <code>react-d3-speedometer</code> (nine d3 packages plus
+<code>lodash-es</code>, React 19-ready, ~20 k weekly downloads, but segment colouring is
+coarse and its <code>d3-transition</code> animation fights a live feed) and
+<code>react-gauge-chart</code> (d3 ^7, least maintained). All three cost ~70 kB+ before
+styling, and all three would have to be fought to look like this app.</li>
+<li><strong>The live waveform is hand-drawn too, and already exists.</strong>
+<a href="https://github.com/AregShahbazian/rpm-boss/tree/poc/live-rpm"><code>poc/live-rpm</code></a>&#39;s <code>LiveScope.tsx</code> is a canvas oscilloscope on
+<code>requestAnimationFrame</code> that auto-scales against a noise floor, reusing
+<code>usePalette</code> and <code>useElementSize</code>. No library draws a scrolling ring buffer
+well.</li>
+<li><strong><a href="https://github.com/AregShahbazian/rpm-boss/tree/poc/live-rpm"><code>poc/live-rpm</code></a> is the design phase&#39;s input, not its starting branch.</strong> It
+carries <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/ring.ts"><code>src/live/ring.ts</code></a>, <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/stream.ts"><code>src/live/stream.ts</code></a>, <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/state/useLive.ts"><code>src/state/useLive.ts</code></a>,
+<code>LiveScope.tsx</code>, <code>LiveScreen.tsx</code> and native <code>RawAudioPlugin</code> changes. The maintainer
+was explicit: inspiration for design, not yet to be merged or built on.</li>
+<li><strong>The stage&#39;s proportions are settled</strong>: 80 % tachometer over 20 % live
+waveform, and inside the tachometer 80 % gauge over 20 % rpm reading, the
+reading divided by a line rather than boxed off. Styling of that reading
+follows the existing calculate result.</li>
+<li><strong>Customization the gauge must support</strong>: ui style, rpm range, and a redline
+section. All three are trivial as canvas arcs and are the reason the library
+route buys nothing.</li>
+</ul>
+<h2>Open questions</h2>
+<ul>
+<li>Style target for the dial: skeuomorphic with ticks, or a minimal arc closer to
+the app&#39;s current flat look?</li>
+<li>Does the needle smooth/sweep, or follow the estimator&#39;s raw output?</li>
+<li>The rpm reading strip is ~20 % of the stage; the calculate result&#39;s figure is
+<code>clamp(3rem, 12vmin, 6rem)</code>. On a laptop the two do not agree and the live
+figure likely needs its own size.</li>
+<li>Whether the live path reuses the batch estimator or the PoC&#39;s own, and what
+the redline default is when no expected range has been entered.</li>
+</ul>
+<h2>Ideas to realize</h2>
+<ul>
+<li>Draw the tachometer as a canvas component (arcs, ticks, needle) taking
+props for rpm range, redline start, and a style variant — no d3, no SVG
+component library.</li>
+<li>Port <code>LiveScope.tsx</code> from <a href="https://github.com/AregShahbazian/rpm-boss/tree/poc/live-rpm"><code>poc/live-rpm</code></a> as the live waveform in the bottom
+fifth of the stage, keeping its auto-scaling and noise floor.</li>
+<li>Give the live rpm reading its own type scale rather than inheriting the
+calculate result&#39;s <code>clamp(3rem, 12vmin, 6rem)</code>.</li>
+<li>Let the redline section default from the expected-range fields when they are
+filled, tying the existing backlog item &quot;expected-range presets per vehicle&quot;
+to the live view.</li>
+<li>Revisit <code>LiveStage</code>&#39;s dashed placeholders: they are scaffolding and must go
+when the real components land.</li>
+</ul>
+
+</div></body></html>

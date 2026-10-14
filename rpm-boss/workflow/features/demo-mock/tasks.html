@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasks — A demo build with a simulated engine</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">features</a> / <a href="index.html">demo-mock</a> / tasks.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <b>tasks</b> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-demo-mock
+feature: demo-mock
+branch: feat/demo-mock
+stage: tasks
+created: 2026-09-15</h2>
+<h1>Tasks — A demo build with a simulated engine</h1>
+<blockquote>
+<p><strong>Status, 2026-09-15.</strong> Tasks 1–13 implemented on <code>feat/demo-mock</code>. Task 14,
+the browser pass, was <strong>not</strong> run: the maintainer is testing this build
+himself first, and asked for it to be left to him. Code review has not been
+run either. What the implementation did differently from what is written
+below is recorded at the foot of this file.</p>
+</blockquote>
+<p>Fourteen, in order. Each one leaves the app working: the flag exists before
+anything reads it, the microphone is re-tested before the mock is built on top
+of its plumbing, and the strings land before the Playwright pass that reads
+them. Commits reference <code>[rb-demo-mock]</code>.</p>
+<p><code>npm test</code> and <code>npm run lint</code> pass at every task, and are not restated below
+except where a task adds something for them to say.</p>
+<hr>
+<h2>1. The flag</h2>
+<p><strong><code>vite.config.ts</code></strong> — a second constant beside the samples one, computed the
+same way, and a second entry in <code>define</code>. The comment above it says what it
+gates and that it is independent of the samples, so the next reader does not
+have to work out whether the pair is deliberate.</p>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/globals.d.ts"><code>src/globals.d.ts</code></a></strong> — <code>declare const __MOCK__: boolean</code>.</p>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/mock.ts"><code>src/live/mock.ts</code></a></strong> — <code>export const MOCK_ENABLED = __MOCK__</code> at the top, with
+the module comment rewritten to describe what this file is about to become. The
+old body stays for now; nothing is deleted until task 6 replaces it.</p>
+<p><strong>Verify:</strong> <code>VITE_MOCK=1 npm run build</code> and <code>npm run build</code> both succeed.
+<code>console.log(__MOCK__)</code> from a scratch edit reads <code>true</code> under <code>npm run dev</code>,
+<code>false</code> under a bare build. Revert the scratch edit.</p>
+<h2>2. Split the readout off the mock</h2>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/features.ts"><code>src/features.ts</code></a></strong> — <code>mockLive</code> becomes <code>liveStats</code>. Its doc comment loses
+the paragraph about the Mock button and keeps the paragraph about the readout;
+the file&#39;s header note about <code>SAMPLES_ENABLED</code> gains <code>__MOCK__</code> as a second
+example of a flag the build decides.</p>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/state/useLive.ts"><code>src/state/useLive.ts</code></a></strong>, <strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/LiveStats.tsx"><code>src/ui/LiveStats.tsx</code></a></strong> — follow the rename,
+including in <code>LiveStats</code>&#39;s header comment and in the <code>LiveStats</code> interface&#39;s
+doc comment in <code>useLive.ts</code>, both of which name <code>FEATURES.mockLive</code> in prose.</p>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/LiveStage.tsx"><code>src/ui/LiveStage.tsx</code></a></strong> — <code>MOCK_AVAILABLE</code> becomes <code>MOCK_ENABLED</code> from
+<code>mock.ts</code>, and stops consulting <code>SAMPLES_ENABLED</code>. The mock button&#39;s comment
+stops calling it a debug button; it is about to be translated.</p>
+<p><strong>Verify:</strong> <code>grep -rn &quot;mockLive&quot; src/</code> is empty. The Mock button appears under
+<code>npm run dev</code> with <code>FEATURES.liveStats</code> false — which it could not before, and
+which is the point of the split.</p>
+<h2>3. The synthesiser</h2>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/engine-worklet.js"><code>src/live/engine-worklet.js</code></a></strong> — <code>~/git/revbench/engine-processor.js</code>, copied
+without an edit to its code. A header note is <em>prepended</em>, saying where it came
+from, that the constants in it are measured by <code>revbench/scripts/check.py</code>, and
+that the two copies do not track each other.</p>
+<p><strong>Verify:</strong> <code>diff &lt;(tail -n +N src/live/engine-worklet.js) ~/git/revbench/engine-processor.js</code>
+is empty for the right N. <code>npm run lint</code> passes over it.</p>
+<h2>4. Lift the capture tail out of the microphone</h2>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/stream.ts"><code>src/live/stream.ts</code></a></strong> — extract everything <code>liveWorklet</code> does after
+<code>getUserMedia</code> into <code>captureFrom({context, source}, options, label)</code>: the
+capture worklet, the batcher, the muted sink, <code>context.resume()</code>, <code>onOpen</code>.
+<code>liveWorklet</code> keeps the permission, the error mapping, the track cleanup and
+the <code>stopped</code> guards, and calls it. No behaviour changes.</p>
+<p><strong>Verify:</strong> this is the risky one, so it is verified before anything depends on
+it. <code>npm run dev</code>, press Listen, hum at the laptop, watch the dial read.
+Stop, start again, stop. Deny the permission once and confirm the sentence is
+still the right one.</p>
+<h2>5. The audio graph</h2>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/mock-engine.ts"><code>src/live/mock-engine.ts</code></a></strong> — new. Exports <code>openMockEngine(options, engine)</code>,
+which makes the <code>AudioContext</code>, adds both worklet modules, builds the graph in
+the design, and returns <code>{stop, tune}</code>. It holds the only reference to
+<code>engine-worklet.js</code>, and nothing statically imports it.</p>
+<p>The engine node connects twice: through a gain node to the destination, and
+into the capture tail from task 4. <code>stop</code> posts <code>&#39;stop&#39;</code> to the processor,
+disconnects, and closes the context.</p>
+<p><strong>Verify:</strong> temporarily import it from <code>useLive</code> and start it. The engine is
+audible and the dial reads about 1500. Undo the temporary import.</p>
+<h2>6. The mock, rewritten</h2>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/live/mock.ts"><code>src/live/mock.ts</code></a></strong> — the sample loop, <code>chunksOwed</code>, <code>readLooped</code> and the
+three <code>MOCK_*</code> sample constants go. What remains is <code>MOCK_ENABLED</code>,
+<code>MOCK_START_RPM = 1500</code>, the bounds helpers from the design, and a
+<code>startMockCapture</code> that returns a <code>LiveCapture</code> synchronously while
+<code>await import(&#39;./mock-engine&#39;)</code> runs inside <code>if (__MOCK__)</code>. It remembers the
+last <code>tune</code> it was handed before the graph opened and applies it on open, and
+its <code>stop</code> is idempotent and safe before the graph exists.</p>
+<p><code>MOCK_MAX_RPM</code> is written with a placeholder equal to <code>MAX_RPM</code> and a <code>TODO</code>
+naming task 9. Task 9 replaces it.</p>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/mock.test.ts"><code>test/mock.test.ts</code></a></strong> — deleted. It tests two functions that no longer exist.</p>
+<p><strong>Verify:</strong> <code>npm test</code> passes with one test file fewer. The mock button starts
+the engine and the dial settles at 1500.</p>
+<h2>7. The source reaches the screen</h2>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/state/useLive.ts"><code>src/state/useLive.ts</code></a></strong> — <code>LiveState</code> gains <code>source?: LiveSource</code>, set in
+<code>start</code> and cleared by <code>OFF</code>. The hook returns <code>tune</code>, which forwards to
+<code>capture.current?.tune?.()</code>. The existing effect that keeps <code>revs.current</code> up
+to date also tunes a running mock, so the stroke setting and the simulated
+engine cannot disagree.</p>
+<p><strong>Verify:</strong> start the mock, open the settings, switch to two-stroke and back.
+The dial stays at 1500 through both, and the sound changes pitch character at
+the switch (a two-stroke at 1500 fires twice as often).</p>
+<h2>8. The slider control</h2>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/kit.tsx"><code>src/ui/kit.tsx</code></a></strong> — <code>Slider</code>: label, <code>input type=&quot;range&quot;</code>, the set value
+shown beside it in <code>tabular-nums</code> and <code>dir=&quot;ltr&quot;</code>. Track and thumb take their
+colours from the palette explicitly, in both themes. 48 px hit height, like
+<code>Button</code>.</p>
+<p><strong>Verify:</strong> both themes, at 360 px and at desktop width. Keyboard: focus ring
+visible, arrow keys move it, and the figure follows.</p>
+<h2>9. Measure the ceiling</h2>
+<p>Run revbench&#39;s own sweep, with the two-stroke rate range matched to the app&#39;s
+scaled one rather than the Python baseline&#39;s fixed four-stroke range:</p>
+<pre><code class="language-bash">cd ~/git/revbench &amp;&amp; python3 scripts/check.py --rpm-boss ~/git/rpm-boss
+</code></pre>
+<p>Read the two tables. <code>MOCK_MAX_RPM</code> in <code>mock.ts</code> takes the highest speed each
+stroke reads back clean, rounded <em>down</em> to the next hundred. If both are clean
+to the top of the dial, the <code>Record</code> collapses to a single constant and the
+design&#39;s paragraph about the two-stroke cap goes with it.</p>
+<p>The constants carry the measurement in their comment — what was run, what it
+printed, on what date — the way <code>MIN_RATE</code> and <code>AMP_JITTER</code> already do in this
+codebase.</p>
+<p><strong>Verify:</strong> the slider, driven to its top on each stroke setting, reads back
+within the same tolerance a fixture gets. A stroke whose sweep is <em>not</em> clean
+to the dial&#39;s top is a finding for <code>review.md</code>, written down rather than
+quietly capped.</p>
+<h2>10. The screen</h2>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/LiveStage.tsx"><code>src/ui/LiveStage.tsx</code></a></strong> —</p>
+<ul>
+<li>the resting strip keeps Listen at <code>tone=&quot;go&quot;</code> and gives the mock button a
+translated label beside the flask icon;</li>
+<li>the stage&#39;s rows become <code>4fr 1fr auto</code> while the mock runs, the <code>auto</code> row
+holding the <code>Slider</code>, bounded by <code>mockRpmBounds(revs, maxRpm)</code>;</li>
+<li>the badge goes over the dial: absolute, top, centred, muted, shown only when
+<code>live.source === &#39;mock&#39;</code>.</li>
+</ul>
+<p><code>LiveStage</code> needs <code>revs</code> and <code>tune</code> passed down from <code>InputScreen</code>, which
+already holds both.</p>
+<p><strong>Verify:</strong> portrait and landscape, both themes. The badge is over the dial in
+every one of them and absent on the microphone path.</p>
+<h2>11. Seventeen languages</h2>
+<p><strong><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/i18n/en.ts"><code>src/i18n/en.ts</code></a></strong> — <code>mockEngine</code>, <code>simulated</code>, <code>mockSpeed</code>, each with the
+context comment the file&#39;s convention requires.</p>
+<p><strong><code>src/i18n/messages/*.ts</code></strong> — all sixteen. Bengali, Cebuano, Spanish, Filipino,
+French, Hindi, Armenian, Indonesian, Malay, Portuguese, Russian, Swahili, Thai,
+Ukrainian, Urdu, Vietnamese.</p>
+<p>&quot;Simulated&quot; is the word to get right: it must not read as &quot;fake&quot; in the sense
+of broken, nor as &quot;demo&quot; in the sense of a trial version. It says the engine is
+not real.</p>
+<p><strong>Verify:</strong> <code>npm test</code> — <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/i18n.test.ts"><code>test/i18n.test.ts</code></a> fails any bundle missing a key, and
+the compiler fails one with a key too many. Check Urdu in the app: the badge and
+the slider label are both inside an RTL layout.</p>
+<h2>12. Prove the release builds are clean</h2>
+<pre><code class="language-bash">npm run build &amp;&amp; grep -rl &quot;engine\|EngineProcessor&quot; dist/assets | head
+ls dist/assets | wc -l
+du -sb dist
+VITE_SAMPLES=1 VITE_MOCK=1 npm run build &amp;&amp; ls dist/assets
+</code></pre>
+<p>The bare build must contain no worklet chunk for the synthesiser, no
+<code>registerProcessor(&#39;engine&#39;</code> anywhere, and no string from task 11&#39;s keys. Its
+size is within a kilobyte of <code>main</code>&#39;s.</p>
+<p><strong>If the chunk is there</strong>, the fallback is in the design: alias <code>./mock-engine</code>
+to an empty stub in <code>vite.config.ts</code> when the flag is off. Take it, and say so
+in <code>review.md</code> — it changes what the &quot;no bytes&quot; requirement cost, which is
+worth recording.</p>
+<p><strong>Verify:</strong> also build the APK once, <code>./scripts/apk.sh</code>, and confirm its size
+matches the last release&#39;s. That is the build the requirement exists for.</p>
+<h2>13. The deploy, and the README</h2>
+<p><strong><code>.github/workflows/deploy.yml</code></strong> — <code>VITE_SAMPLES: &#39;1&#39;</code> and <code>VITE_MOCK: &#39;1&#39;</code>
+on the build step, with a comment saying this is the demo build and why both
+are on here and nowhere else.</p>
+<p><strong><code>README.md</code></strong> — the &quot;Bundled samples&quot; section gains a sibling about the
+simulated engine: what the flag is, that it is on in dev, off in every build
+that is not the website, and that the synthesiser comes from revbench. The
+Deploy section says the site is built with both.</p>
+<p><strong>Verify:</strong> the workflow file parses (<code>gh workflow view</code> or a YAML lint). No
+push — the deploy runs on merge to <code>main</code>, which is stage 7 and the
+maintainer&#39;s.</p>
+<h2>14. The Playwright pass</h2>
+<p>The stage-4 gate: the feature is not implemented until it has been driven in a
+real browser. Against <code>npm run dev</code>, at 360×740 and 740×360, in both themes:</p>
+<ol>
+<li>Press the simulated button. The engine is audible, the badge is over the
+dial, the slider is at 1500, and the reading settles at 1500.</li>
+<li>Drag the slider to its top, wait for it to settle, read. Then to its floor.
+Then back to 1500. The needle follows each time and the reading agrees at
+each stop.</li>
+<li>Mute the machine and repeat one stop. The reading is unchanged.</li>
+<li>Stop. The sound stops with it, the badge and the slider go, the buttons come
+back.</li>
+<li>Press Listen. The microphone path runs, with no badge, no slider and no
+engine underneath it.</li>
+<li>Switch to two-stroke and repeat 1 and 2.</li>
+<li>Leave the tab and come back: <code>pagehide</code>/<code>visibilitychange</code> stop live mode,
+so the sound must not be playing behind a stopped dial.</li>
+</ol>
+<p>Screenshots go to the scratchpad, not the repo. What was seen is reported in
+the session, and the findings go to <code>review.md</code> at the review stage — not into
+fixes during the pass.</p>
+<hr>
+<h2>What the implementation did differently</h2>
+<p>Five, all small, all in <code>design.md</code> in full.</p>
+<ol>
+<li><strong>Task 6 → <code>mockRpmBounds(maxRpm)</code>, not <code>(revs, maxRpm)</code>.</strong> Task 9&#39;s sweep
+came back clean to 12,000 on both strokes, so the per-stroke ceiling the
+design provided for was not needed and the <code>Record</code> collapsed to one
+constant.</li>
+<li><strong><code>LiveCapture.tune</code> takes a <code>Partial</code>.</strong> The slider knows a speed, the
+settings know a stroke, and making each carry the other meant a ref in
+<code>useLive</code> to remember the rpm — which the engine&#39;s own handle already does.
+Merging there instead removed the ref and two lint warnings with it.</li>
+<li><strong>Two hooks in <code>useLive</code> sit below <code>start</code> and <code>stop</code></strong> rather than beside
+the ref they serve. <code>oxlint</code>&#39;s <code>react(immutability)</code> rule will not have a ref
+read inside a hook callback and assigned by anything declared after it. The
+order is load-bearing and the file says so.</li>
+<li><strong><code>const simulated = MOCK_ENABLED &amp;&amp; live.source === &#39;mock&#39;</code></strong> — the constant
+is redundant to the running app and load-bearing to the bundler. Without it
+the <code>Slider</code>, its CSS and the extra grid row stayed in a bare build, because
+&quot;unreachable&quot; and &quot;statically dead&quot; are not the same thing.</li>
+<li><strong>The defaults inverted, at the maintainer&#39;s instruction.</strong> Both flags now
+default <strong>off</strong> everywhere, the dev server included, and <code>--demo</code> on
+<code>dev.sh</code>, <code>apk.sh</code> or <code>install.sh</code> turns them on — one flag, one script call,
+no environment variables. <code>dev.sh</code> absorbed the <code>demo.sh</code> this task list
+originally added, and gained <code>--build</code> (serve <code>dist/</code> instead of the source)
+and <code>--samples</code>. <code>aab.sh</code> deliberately has no <code>--demo</code>: the bundle is what
+goes to Play. PRD 13 and 14 were amended to match.</li>
+</ol>
+<p>And one number to carry into the review: a bare build grows <strong>2,031 bytes</strong>, all
+of it the three strings in seventeen languages. <code>index.js</code> itself shrank by 489.</p>
+
+</div></body></html>

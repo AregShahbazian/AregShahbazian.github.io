@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rpm-boss — MVP definition (leading document)</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="./index.html">workflow docs</a> / mvp.md</nav>
+<h1>rpm-boss — MVP definition (leading document)</h1>
+<p><strong>Last updated:</strong> 2026-09-11
+<strong>Status:</strong> active. Everything in this repo is measured against this doc.</p>
+<h2>What it is</h2>
+<p>An app that tells you the RPM of a running combustion engine from its sound.
+Point the phone at the engine, record a few seconds (or pick a recording you
+already have), press Calculate, read one number.</p>
+<p>Target engines: simple ones. Single cylinder, not running too smoothly, e.g. a
+motorcycle or generator at idle. Multi-cylinder engines are out of scope for
+the MVP.</p>
+<p>No backend. No account, no login. Everything runs on the device.</p>
+<h2>Users and platforms</h2>
+<ul>
+<li><strong>Primary:</strong> Android app, published through Google Play.</li>
+<li><strong>Also:</strong> the same app in a mobile browser (Android Chrome). Used for most
+testing during development, and must support mic recording and file upload.</li>
+<li>Desktop is not a target. It should not break, but nothing is designed for it.</li>
+</ul>
+<p>One codebase for both; see Stack.</p>
+<h2>Inputs</h2>
+<ol>
+<li><strong>Upload</strong> a pre-recorded audio file: WAV, MP3, AAC/M4A, OGG. Max 50 MB.
+Video files are out of the MVP (see backlog).</li>
+<li><strong>Record</strong> live in the app. Hard stop at 10 s, visible countdown.</li>
+</ol>
+<p>Both paths produce a 16 kHz mono buffer that the user can play back. The user
+then <strong>crops</strong> it, with the waveform visible, to the clearest section. Cropping
+is always shown and the analysed window is capped at <strong>10 s</strong>, so long files
+are handled by picking a window, not by rejecting them. Mic capture runs with
+echo cancellation, noise suppression and auto gain off.</p>
+<h2>Analysis</h2>
+<ul>
+<li>Engine type: <strong>4-stroke single only</strong> in the MVP. One combustion per two
+revolutions, a fixed factor rather than a user-facing preset. The
+4-stroke / 2-stroke toggle moved to the backlog on 2026-09-10: there is no
+2-stroke recording to validate it against.</li>
+<li>Optional <strong>expected range</strong> (min-max RPM). Not required. Rationale: when the
+estimator is wrong it tends to be wrong by a multiple (octave errors,
+half/double counting), not by a few percent, so a coarse range disambiguates
+bad audio.</li>
+<li>Output: <strong>one number</strong>, not a range.</li>
+<li>Visualization: the analysed section as a waveform with the detected
+combustions highlighted, so the user can judge whether the app &quot;heard&quot; it
+right. Since phase 8 this is the crop waveform itself, zoomed to the window,
+rather than a second canvas below the number.</li>
+</ul>
+<p>Reference method (from the sample analysis, <code>~/git/rpm-boss/audio/combustion-counts.md</code>):
+mono 16 kHz, Butterworth bandpass 60-2000 Hz, full-wave rectify, lowpass 150 Hz
+envelope, then (B) autocorrelation per 1 s window, lag range 8-100 pulses/s,
+median across windows; cross-checked by (A) peak counting with
+<code>find_peaks(distance = 0.6 * sr / rate, prominence = 0.5 * std)</code>.
+Both agree within ~3 % on all seven samples. RPM = pulses/s x 60 x
+(revolutions per pulse: 2 for 4-stroke, 1 for 2-stroke).</p>
+<h2>Ground truth</h2>
+<p>Seven recordings of a single-cylinder 4-stroke at idle, 6-16 s each, AAC 48 kHz
+stereo, in <code>~/git/rpm-boss/audio/</code>, with independently verified pulse counts in
+<code>combustion-counts.md</code> (1400-1800 RPM). These are the test fixtures. Every
+change to the analysis is judged by the test suite over these files; the
+tolerance is set per file from the A/B agreement in that table.</p>
+<h2>UI (MVP)</h2>
+<p>One screen, one grid, two layouts. The same seven parts in the same DOM order;
+only where they sit changes.</p>
+<ol>
+<li>Source: <strong>Open audio</strong> | <strong>Record</strong> (with a countdown/limit), and a settings
+icon holding the language and the light/dark choice.</li>
+<li>Waveform of the loaded audio with a crop range selector, plus an overview
+strip above it when the clip is longer than the detail view shows.</li>
+<li>Play, and the crop&#39;s start, end and length.</li>
+<li>Optional expected range fields.</li>
+<li><strong>Calculate</strong> button.</li>
+<li>Result: the RPM as one large number, and how many combustions were counted.</li>
+</ol>
+<p>There is one waveform, not two. When a result arrives the crop canvas zooms to
+the analysed window and draws a mark on every combustion, so the number and the
+evidence for it are the same picture. Touching the waveform widens the view
+again.</p>
+<p><strong>Stacked</strong> below 600 px, or on any screen taller than it is wide: the parts in
+the order above, one column.</p>
+<p><strong>Split</strong> at 600 px and wider in landscape: a control column beside a signal
+column. The switch is width <em>and</em> shape, because a waveform gains almost
+nothing from height and everything from width. Phase 8 measured what happens
+otherwise: a portrait tablet took the landscape layout and the whole app
+collapsed into a band across the middle of the screen.</p>
+<p>Dark by default; light is a choice, not the device&#39;s. Urdu mirrors the whole
+layout from one <code>dir</code> attribute, because grid columns follow the inline
+direction.</p>
+<h2>Stack</h2>
+<ul>
+<li><strong>TypeScript, React, Vite.</strong> One codebase.</li>
+<li><strong>DSP module:</strong> hand-written, pure functions over <code>Float32Array</code>, no DOM
+dependency. Ported from the scipy reference. Runs in a Web Worker in the app
+and in Node under test.</li>
+<li><strong>Tests:</strong> vitest. Fixtures = the seven recordings decoded to 16 kHz mono WAV
+(via ffmpeg, checked in) plus expected RPM and tolerance.</li>
+<li><strong>Audio I/O:</strong> Web Audio <code>decodeAudioData</code> for files (incl. MP4 audio track),
+<code>MediaRecorder</code> + <code>getUserMedia</code> for recording.</li>
+<li><strong>Android:</strong> Capacitor wrapping the same build. Native plugins only where a
+WebView API falls short.</li>
+<li><strong>Waveform UI:</strong> canvas, hand-drawn.</li>
+<li>No backend, no auth, no analytics.</li>
+</ul>
+<p>Rejected: Flutter (web would be second-class, and web is the test loop), Python
+on device (not shippable), essentia/librosa-style WASM libraries (method does
+not need them).</p>
+<h2>MVP done means</h2>
+<ul>
+<li>Upload or record, crop, Calculate, see one RPM and the marked waveform, on
+Android Chrome and as an installable Android app.</li>
+<li>Every user-facing string goes through the translation layer, with English,
+Tagalog and Bisaya available (phase 7).</li>
+<li>The interface has had its full redesign (phase 8), portrait and landscape,
+dark and light, judged with every screen in place rather than one phase at a
+time.</li>
+<li>Test suite green on all seven fixtures.</li>
+<li>Public repo with README and a runnable dev setup.</li>
+</ul>
+<h2>Future (not MVP) — see backlog.md</h2>
+<p>Video input with crop-and-preview, noise reduction, user-marked combustions, live tachometer without recording,
+tachometer gauge UI, named/grouped results per vehicle, multi-cylinder presets,
+the 4-stroke / 2-stroke preset.</p>
+
+</div></body></html>

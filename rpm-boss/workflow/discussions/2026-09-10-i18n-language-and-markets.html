@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 7: how the strings should read, and which languages to carry</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../index.html">workflow docs</a> / <a href="index.html">discussions</a> / 2026-09-10-i18n-language-and-markets.md</nav>
+<h1>Phase 7: how the strings should read, and which languages to carry</h1>
+<p><strong>Date:</strong> 2026-09-10
+<strong>Phase:</strong> 7 (i18n), decided before the PRD</p>
+<h2>Plain language first, machinery second</h2>
+<p>The audience is a rider standing next to a running engine, often not a native
+English speaker, often on a phone in daylight. Three rules, in this order.</p>
+<h3>1. Let the platform format a number and its unit together</h3>
+<p>The too-short message is built from a constant and an English plural test:
+&quot;Record or pick at least 2 seconds&quot;, where 2 is <code>MIN_CLIP_S</code> and the <code>s</code> comes
+from <code>n === 1 ? &#39;second&#39; : &#39;seconds&#39;</code>. Two things go wrong when that is
+translated. The number gets baked into the translated sentence, so raising the
+minimum again (phase 4 already raised it from 1 to 2, and its notes say
+analysis may raise it further) leaves every language but English saying the old
+number. And the plural rule is English grammar decided in the app: Tagalog and
+Bisaya do not inflect the noun at all, and other languages have more than two
+forms.</p>
+<p><strong><code>Intl.NumberFormat</code> with <code>style: &#39;unit&#39;</code> solves both.</strong> It turns 2 into
+&quot;2 seconds&quot;, &quot;2 segundos&quot;, &quot;2 detik&quot;, and the correct form everywhere,
+including languages with more or fewer plural categories than English. The
+message then carries one slot and no grammar:</p>
+<pre><code>Too short. Record at least {duration}.
+</code></pre>
+<p>Reach for ICU MessageFormat only where a count and its noun genuinely must be
+separated. While <code>Intl</code> can carry the whole phrase, it should.</p>
+<h3>2. Write the English for someone who is not reading carefully</h3>
+<p>Short sentences, verb first, the fix before the diagnosis.</p>
+<table>
+<thead>
+<tr>
+<th>now</th>
+<th>better</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>That clip is too short. Record or pick at least 2 seconds.</td>
+<td>Record at least 2 seconds.</td>
+</tr>
+<tr>
+<td>Couldn&#39;t hear a steady engine in that section. Try a clearer part of the recording.</td>
+<td>No steady engine sound here. Try another part.</td>
+</tr>
+<tr>
+<td>This browser will not record without the processing that mutes engine sound. Record in Chrome, or upload a file instead.</td>
+<td>This browser cannot record engine sound. Use Chrome, or open a file.</td>
+</tr>
+</tbody></table>
+<p>Shorter English also translates better, because it leaves less to guess.</p>
+<p><strong>Fix the jargon in English first</strong>, since every language inherits it. &quot;Clip&quot;
+and &quot;crop&quot; are editing words; a rider says recording and choose.</p>
+<h3>3. Give every string a note saying what just happened</h3>
+<p>&quot;Too short&quot; alone could be about a recording, a password or a name. One line of
+context per string, written when the string is written, is the difference
+between a natural translation and one that reads like a manual.</p>
+<p><strong>Test this later</strong>: pick a few translated strings and check them with someone
+who is not a developer.</p>
+<h2>The picker</h2>
+<p>A dropdown, somewhere convenient. Deliberately not designed: phase 8 overhauls
+the UI and will place it properly. English is the default.</p>
+<h2>Languages</h2>
+<p>Committed by the maintainer:</p>
+<table>
+<thead>
+<tr>
+<th>Language</th>
+<th>Where it earns its place</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>English</td>
+<td>default, and the working language of much of Africa and South Asia</td>
+</tr>
+<tr>
+<td>Spanish</td>
+<td>Colombia, Peru, Mexico, Bolivia, Central America</td>
+</tr>
+<tr>
+<td>Portuguese</td>
+<td>Brazil</td>
+</tr>
+<tr>
+<td>Indonesian</td>
+<td>Indonesia, one of the largest two-wheeler markets anywhere</td>
+</tr>
+<tr>
+<td>Malay</td>
+<td>Malaysia; close enough to Indonesian that one file may serve both at first</td>
+</tr>
+<tr>
+<td>Tagalog</td>
+<td>Philippines</td>
+</tr>
+<tr>
+<td>Bisaya</td>
+<td>Philippines, Visayas and Mindanao</td>
+</tr>
+<tr>
+<td>Armenian</td>
+<td>the maintainer&#39;s own</td>
+</tr>
+</tbody></table>
+<h2>Which markets to add, and why</h2>
+<p>The app is for engines without a tachometer: small-displacement singles, and
+dual-sports in particular, which often ship without one. That points at places
+where a 100-250 cc single is transport rather than a hobby, and where people
+maintain their own.</p>
+<p><strong>Strongest additions, in order.</strong> Figures checked 2026-09-10; sources at the
+end.</p>
+<ol>
+<li><strong>Vietnamese.</strong> ~45 million motorcycles, 86 % of households own one, the
+highest ownership per head in the world, and the fastest growing ASEAN
+market in 2025 at +13.5 %. The fleet is overwhelmingly small singles.</li>
+<li><strong>Thai.</strong> ~20 million registered, 87 % of people use a two-wheeler, +9.8 %
+in 2025. Thailand also has the strongest dual-sport and enduro culture in
+the region, which is exactly the machine that ships without a tacho.</li>
+<li><strong>Hindi.</strong> India registered <strong>20.2 million</strong> two-wheelers in 2025, more than
+all of ASEAN combined. Caveat unchanged and important: many Indian bikes do
+have a tachometer, so the fit is the older and cheaper end of the fleet, and
+Hindi alone does not cover India.</li>
+<li><strong>Urdu.</strong> Pakistan sold 1.8 million in 2025 and grew <strong>39.8 %</strong>, among the
+fastest anywhere. The 70-125 cc single is the default vehicle and
+instrumentation is minimal. Better placed than I first had it.</li>
+<li><strong>French.</strong> West and Central Africa. Confirmed: the Francophone market runs
+on 100-150 cc Asian bikes, largely second-hand, with Guinea and Mali among
+the largest consumers. Second-hand small singles are precisely the ones
+without a working tacho, and one language covers many countries.</li>
+<li><strong>Swahili.</strong> Kenya, Tanzania, Uganda, eastern DRC. Kenya registered 168,000
+motorcycles in 2025 — modest next to Asia — so the case here is the <em>use</em>
+rather than the volume: the boda boda trade turns over $4 million a day in
+Kenya alone, is projected to be Uganda&#39;s second largest employer after
+agriculture, and those bikes are worked hard and fixed by their riders.</li>
+<li><strong>Bengali.</strong> Bangladesh sold 476,000 units in 2025, 17th in the world.
+Real but an order of magnitude below Pakistan; <strong>demoted</strong> from where I had
+it.</li>
+</ol>
+<p><strong>Worth considering after those:</strong> Khmer (Cambodia), Burmese (Myanmar),
+Nepali (Nepal), Sinhala (Sri Lanka), Amharic (Ethiopia), Arabic (Egypt and
+North Africa), Turkish, Persian.</p>
+<p><strong>One market to be careful with.</strong> Nigeria is the obvious English-language
+candidate in West Africa, but Lagos has banned commercial motorcycles across
+much of the city since 2020 and was still impounding them through 2025.
+Enforcement is patchy and the trade has partly returned, but it makes Nigeria a
+weaker bet than its population suggests.</p>
+<p><strong>What the research changed.</strong> Pakistan moved up and Bangladesh down; French
+West Africa moved up, because second-hand 100-150 cc bikes match the premise
+better than raw volume does. Vietnam and Thailand were confirmed. India is
+confirmed as the largest market and remains the least certain fit.</p>
+<p><strong>Still unverified, and the premise of all of it:</strong> whether the common models
+in each place actually lack a tachometer. Nothing found addresses that
+directly. It is worth an hour with the spec sheets of the five best-selling
+bikes in Vietnam, Thailand and Pakistan before committing.</p>
+<p><strong>A note on cost.</strong> Every language is a permanent maintenance cost: each new
+string needs translating again. Shipping the committed eight first and adding
+from this list once the app has users in a place is cheaper than guessing now.</p>
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.motorcyclesdata.com/2026/02/12/asean-motorcycles-industry/">ASEAN motorcycles 2026, MotorCyclesData</a></li>
+<li><a href="https://www.autopunditz.com/post/countries-with-most-motorcycles-per-person">Countries with the most motorcycles per person</a></li>
+<li><a href="https://www.autocarindia.com/bike-news/two-wheeler-sales-cross-20-million-mark-in-438709">Two-wheeler sales cross 20 million in India, Autocar India</a></li>
+<li><a href="https://www.motorcyclesdata.com/2026/07/13/pakistan-motorcycles/">Pakistan motorcycles 2026, MotorCyclesData</a></li>
+<li><a href="https://www.motorcyclesdata.com/2026/02/15/bangladesh-motorcycles/">Bangladesh motorcycles 2026, MotorCyclesData</a></li>
+<li><a href="https://www.trtafrika.com/english/article/14385534">Boda-boda taxis, East Africa&#39;s transport lifeline, TRT Afrika</a></li>
+<li><a href="https://www.in-formality.com/wiki/index.php?title=Boda-boda_%28Uganda%29">Boda-boda Uganda, Global Informality Project</a></li>
+<li><a href="https://www.indexbox.io/store/western-africa-motorcycles-and-scooters-market-analysis-forecast-size-trends-and-insights/">Western Africa motorcycles and scooters market, IndexBox</a></li>
+<li><a href="https://guardian.ng/news/nigeria/metro/okada-menace-lagos-task-force-intensifies-crackdown-impounds-139-motorcycles/">Lagos okada enforcement, Guardian Nigeria</a></li>
+</ul>
+
+</div></body></html>

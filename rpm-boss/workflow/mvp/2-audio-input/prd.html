@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD — Audio input</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">2-audio-input</a> / prd.md &nbsp;|&nbsp; stages: <b>prd</b> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-audio-input
+feature: 2-audio-input
+status: draft
+created: 2026-09-10
+depends_on: [1-bare-app]</h2>
+<h1>PRD — Audio input</h1>
+<h2>Goal</h2>
+<p>Get engine sound into the app as one decoded buffer, from an uploaded file or
+the microphone, so that every later feature works on a single, known input
+shape regardless of where the audio came from.</p>
+<h2>Why</h2>
+<p>The analysis is only as good as its input. Users have two realistic situations:
+they are standing next to the engine with the phone, or they already have a
+recording. Both must end in the same place, with enough control to check what
+was captured. See <a href="../../discussions/2026-09-10-audio-input-scope.html"><code>discussions/2026-09-10-audio-input-scope.md</code></a> for the
+decisions behind the limits below.</p>
+<h2>User stories</h2>
+<ol>
+<li>As a user with a running engine, I tap Record, hear/see a countdown, and
+after at most 10 s the app has my recording.</li>
+<li>As a user with a recording on my phone, I tap Upload, pick the file, and the
+app has it.</li>
+<li>As a user, I can play back what the app has, to check it captured the
+engine and not my thumb over the mic.</li>
+<li>As a user, if something goes wrong (unsupported file, too large, mic
+denied), I get one plain sentence telling me what and what to do.</li>
+</ol>
+<h2>Scope</h2>
+<h3>In</h3>
+<ul>
+<li><strong>Upload</strong> via the platform file picker. Accepted: WAV, MP3, AAC/M4A, OGG.
+Max <strong>50 MB</strong>; larger files are refused before decoding.</li>
+<li><strong>Record</strong> via the microphone. <strong>Hard stop at 10 s.</strong> Visible countdown
+while recording, a Stop button to end early. Mic constraints: echo
+cancellation off, noise suppression off, auto gain off, mono.</li>
+<li><strong>Decode</strong> both to the internal shape: <strong>mono, 16 kHz</strong>, <code>Float32Array</code>
+samples in the range -1..1, plus the sample rate and duration. Recordings
+arrive as WebM/Opus (MediaRecorder on Android Chrome) and go through the
+same decode path.</li>
+<li><strong>Playback</strong> of the loaded buffer: play/stop, current position shown as
+time text. No seeking in this phase.</li>
+<li><strong>State shown:</strong> empty, decoding, loaded (duration, source name), recording
+(countdown), error (message). One screen, phone portrait.</li>
+<li><strong>Errors:</strong> unsupported or undecodable file, file over 50 MB, microphone
+permission denied, no microphone. Each a single sentence with a retry path.</li>
+<li><strong>Replace:</strong> loading or recording again replaces the current buffer.</li>
+</ul>
+<h3>Out</h3>
+<ul>
+<li>Video files (backlog: video input with crop-and-preview).</li>
+<li>Cropping and the waveform display (3-waveform-crop). The 10 s analysis
+window limit is enforced there, not here; long uploads are accepted whole.</li>
+<li>Any analysis, presets, expected range, persistence, result view.</li>
+<li>Seeking, volume, trimming during playback.</li>
+<li>Desktop-specific layout. It must not break on desktop, nothing more.</li>
+</ul>
+<h2>Acceptance criteria</h2>
+<ol>
+<li>On Android Chrome via <code>localhost</code> (adb reverse), Record captures up to 10 s
+and stops itself at 10.0 s (tolerance 0.2 s); Stop ends it earlier.</li>
+<li>Each of the seven fixture originals in <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/audio/"><code>audio/</code></a> (AAC) uploads and decodes;
+the resulting buffer is 16 kHz mono with the duration in
+<a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/fixtures/expected.json"><code>test/fixtures/expected.json</code></a> (tolerance 0.1 s).</li>
+<li>A WAV, an MP3 and an OGG file upload and decode. A 60 MB file is refused
+with the size message without being read into memory.</li>
+<li>Playback plays the loaded buffer from start to end and stops.</li>
+<li>Denying the mic permission shows the permission message and the Record
+button remains usable after granting.</li>
+<li>Unit tests: the decode-to-internal-shape step (resample to 16 kHz, mix to
+mono) is a pure function tested against the WAV fixtures and against a
+synthetic stereo 48 kHz signal.</li>
+<li><code>npm test</code>, <code>npm run lint</code>, <code>npm run build</code> pass.</li>
+</ol>
+<h2>Non-goals and constraints</h2>
+<ul>
+<li>No backend. Nothing leaves the device.</li>
+<li>No new runtime dependencies for decoding; Web Audio <code>decodeAudioData</code>
+and <code>MediaRecorder</code> only. If Android Chrome cannot decode a promised
+format through Web Audio, that is a finding for the review, not a reason to
+add a library in this phase.</li>
+<li>Keep the input module free of React: a small API (<code>loadFile</code>, <code>record</code>,
+<code>decodeToInternal</code>) that later features and tests call directly.</li>
+</ul>
+<h2>Open questions</h2>
+<ul>
+<li>Does Android Chrome&#39;s <code>decodeAudioData</code> accept every promised container
+reliably (in particular M4A and OGG/Vorbis)? To be verified in review; the
+fallback decision, if any, is a separate discussion.</li>
+</ul>
+
+</div></body></html>

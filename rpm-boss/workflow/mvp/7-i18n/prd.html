@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD — Languages</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">7-i18n</a> / prd.md &nbsp;|&nbsp; stages: <b>prd</b> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-i18n
+feature: 7-i18n
+branch: feat/7-i18n
+status: draft
+created: 2026-09-10
+depends_on: [6-android]</h2>
+<h1>PRD — Languages</h1>
+<h2>Goal</h2>
+<p>Every user-facing string comes from a translation layer, and the app speaks
+fifteen languages.</p>
+<h2>Why</h2>
+<p>This phase was scheduled last on purpose. Every string the MVP will ever have
+now exists, so extracting them is one pass rather than an archaeology dig, and
+the phases so far have kept strings out of deep component internals to make
+that true. The error messages in <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/types.ts"><code>audio/types.ts</code></a> are the pattern the rest
+should follow.</p>
+<p>The reason to do it at all is the market. The app is for engines without a
+tachometer, which means small single-cylinder bikes used as transport rather
+than as a hobby: Southeast Asia, South Asia, West and East Africa, Latin
+America. English is not comfortably read in most of those places. An app that
+tells a rider something they cannot read is an app that gets deleted.</p>
+<p>The research behind the language list is in
+<a href="../../discussions/2026-09-10-i18n-language-and-markets.html"><code>discussions/2026-09-10-i18n-language-and-markets.md</code></a>, along with the writing
+rules below.</p>
+<h2>User stories</h2>
+<ol>
+<li>As a rider whose phone is set to Vietnamese, I open the app and it is in
+Vietnamese, without being asked.</li>
+<li>As a rider whose language is not one of the fifteen, I get English rather
+than an empty screen.</li>
+<li>As a rider who prefers a different language to my phone&#39;s, I change it once
+and it stays changed.</li>
+<li>As a rider who is not a confident reader, every message tells me what to do
+in a short sentence.</li>
+</ol>
+<h2>Scope</h2>
+<h3>In</h3>
+<ul>
+<li><strong>A translation layer of our own.</strong> A small module, no library, in keeping
+with the hand-written DSP and the hand-drawn canvas. Message lookup by key,
+one file per language, English as the source and the fallback.</li>
+<li><strong>Seventeen languages.</strong> English (source), Armenian, Bengali, Bisaya, French,
+Hindi, Indonesian, Malay, Portuguese, Russian, Spanish, Swahili, Tagalog,
+Thai, Ukrainian, Urdu, Vietnamese. Urdu&#39;s <em>strings</em> ship in this phase; its
+right-to-left <em>layout</em> is phase 8&#39;s, which is redesigning every affected
+component anyway.</li>
+<li><strong>Automatic language choice.</strong> The device language when it is one of the
+fifteen, English otherwise. A chosen language overrides it and is remembered
+on the device, the way the expected-range panel already is.</li>
+<li><strong>A language dropdown</strong>, somewhere convenient. Deliberately not designed;
+phase 8 places it properly. Each language is listed by its <strong>own name in its
+own script</strong> — Français, Русский, हिन्दी, ไทย, Հայերեն — with no flags. A flag
+is a country and a language is not: eight of the seventeen have no single
+obvious flag, Bisaya and Tagalog would share one, and Spanish, Portuguese and
+French would all show the flag of a country that is not the market. A name in
+its own script is also the one label a speaker recognises without reading the
+interface language first.</li>
+<li><strong>The English strings rewritten for plainness first</strong>, before anything is
+translated, because every language inherits them. Short sentences, verb
+first, the fix before the diagnosis. The jargon goes too: &quot;clip&quot; and &quot;crop&quot;
+are editing words, and a rider says recording and choose.</li>
+<li><strong>Numbers and units through <code>Intl</code>.</strong> <code>Intl.NumberFormat</code> with
+<code>style: &#39;unit&#39;</code> formats a duration and its unit together, so the too-short
+message carries one slot and no plural rule. This is what stops English
+grammar being decided in the app for languages that do not work that way.</li>
+<li><strong>A note per string</strong> saying what the user just did, written beside it, so a
+translation reads like a sentence rather than a label.</li>
+<li><strong>Every string</strong>: the input messages in <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/types.ts"><code>audio/types.ts</code></a>, the analysis
+messages in <code>dsp/types.ts</code>, and the interface text in <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/src/ui/"><code>src/ui/</code></a>. Nineteen at
+last count.</li>
+</ul>
+<h3>Out</h3>
+<ul>
+<li><strong>The RPM number stays unlocalised.</strong> No thousands separator, no local digit
+grouping. It is the one figure on the screen and a rider comparing it against
+a manual or a sticker should see the same shape everywhere.</li>
+<li>Right-to-left layout. Phase 8, with Urdu&#39;s strings waiting for it.</li>
+<li>Translating the app name. <strong>RPM Boss</strong> is identity, in the Capacitor config
+and in Android&#39;s <code>strings.xml</code>, and stays as it is everywhere.</li>
+<li>The Play listing, the store description, the screenshots. No Console work in
+this project yet.</li>
+<li>Development-only text: the mic check panel and the export button are
+scaffolding and are not translated.</li>
+<li>Language-specific fonts. The system font is expected to cover Thai, Hindi,
+Bengali, Armenian and Urdu on the target devices; if it does not, that is a
+phase 8 problem.</li>
+</ul>
+<h2>Acceptance criteria</h2>
+<ol>
+<li>No user-facing string literal remains in a component or a module outside the
+translation files. A test asserts it.</li>
+<li>Every key present in English is present in all seventeen files, with no
+leftover English in a translated file. A test asserts both.</li>
+<li>A device set to any of the seventeen languages opens the app in that language;
+a device set to something else opens it in English.</li>
+<li>Choosing a language from the dropdown changes the screen immediately and
+survives a reload and an app restart.</li>
+<li>The too-short message reads correctly in every language when the minimum is
+1, 2 and 3 seconds, including languages that do not pluralise nouns.</li>
+<li>The RPM figure reads the same in every language.</li>
+<li>Nothing in the layout breaks in the longest language: German is not on the
+list, but Portuguese, Tagalog and Swahili all run considerably longer than
+English, and the buttons are fixed-width rows.</li>
+<li>Urdu&#39;s strings are present and correct, and the layout being wrong for them
+is recorded rather than hidden.</li>
+<li><code>npm test</code>, <code>npm run lint</code> and <code>npm run build</code> pass, and the Android build
+still installs and runs.</li>
+</ol>
+<h2>Non-goals and constraints</h2>
+<ul>
+<li>No i18n library. A key-value lookup plus <code>Intl</code> is the whole requirement, and
+a dependency here would be larger than the thing it replaces.</li>
+<li>Translations are Claude&#39;s, and are worth a native speaker&#39;s eye before the
+app is marketed anywhere. Recorded, not blocking.</li>
+<li>No change to the DSP, the analysis, the crop or the result view beyond the
+strings they display.</li>
+</ul>
+<h2>Open questions — all settled 2026-09-10</h2>
+<ol>
+<li><strong>Indonesian and Malay get separate files.</strong> They are close, but the
+differences land on the words this app uses most: record is <em>rekam</em> against
+<em>rakam</em>, upload <em>unggah</em> against <em>muat naik</em>, second <em>detik</em> against <em>saat</em>,
+engine <em>mesin</em> against <em>enjin</em>, browser <em>peramban</em> against <em>pelayar</em>, try
+again <em>coba lagi</em> against <em>cuba lagi</em>. Six of the nineteen strings contain at
+least one. A Malaysian understands the Indonesian, but it reads as foreign,
+which is a real cost for an app whose pitch is being easy to read.</li>
+<li><strong>A missing key falls back to English</strong>, so nothing ever blanks the screen.
+It is a safety net rather than a strategy: the test in AC 2 fails the build
+when any language is short a key, so it should never fire.</li>
+<li><strong>Language names follow Google&#39;s.</strong> <em>Filipino</em> and <em>Cebuano</em>, not Tagalog and
+Bisaya. Those are the labels Android already shows in phone settings, so they
+are what users have seen before. Codes stay <code>fil</code> and <code>ceb</code>, with <code>tl</code>
+detected as Filipino.</li>
+<li><strong>The list sorts by the written name</strong>, through <code>Intl.Collator</code>. Latin names
+come out A to Z and each non-Latin script forms its own block, so a Thai
+speaker finds ไทย by spotting Thai script rather than by knowing where T
+falls in English. This is what Android&#39;s own picker does.</li>
+</ol>
+
+</div></body></html>

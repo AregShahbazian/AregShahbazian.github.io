@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasks — Analysis</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">mvp</a> / <a href="index.html">4-analysis</a> / tasks.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <b>tasks</b> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-analysis
+feature: 4-analysis
+branch: feat/4-analysis
+status: draft
+created: 2026-09-10</h2>
+<h1>Tasks — Analysis</h1>
+<p>Ordered so the DSP is provably right before anything renders it. Each task
+ends green on <code>npm test</code> and <code>npm run lint</code>. Commit subjects carry
+<code>[rb-analysis]</code>.</p>
+<ul>
+<li><strong>T1</strong> Export the Python baseline. Commit <a href="https://github.com/AregShahbazian/rpm-boss/tree/main/scripts/reference/"><code>scripts/reference/</code></a> with the
+scipy implementation and the fixture sweep, and <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/fixtures/reference.json"><code>test/fixtures/reference.json</code></a>
+holding each fixture&#39;s pulses per second. Everything after this is checked
+against it.</li>
+<li><strong>T2</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/dsp/biquad.ts"><code>src/dsp/biquad.ts</code></a>. Second-order section design at Q = 1/√2 for
+highpass and lowpass, and zero-phase application with odd extension at the
+edges. Tests against the scipy coefficients and the magnitude response.</li>
+<li><strong>T3</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/dsp/envelope.ts"><code>src/dsp/envelope.ts</code></a>. Highpass 60, lowpass 2000, rectify, lowpass<ol start="150">
+<li>Tests on a synthetic pulse train, including that a symmetric input stays
+symmetric.</li>
+</ol>
+</li>
+<li><strong>T4</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/dsp/autocorr.ts"><code>src/dsp/autocorr.ts</code></a>. Per-window rate with parabolic refinement,
+window confidence, medians across windows. Tests on synthetic rates including
+one falling between two sample lags.</li>
+<li><strong>T5</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/dsp/pulses.ts"><code>src/dsp/pulses.ts</code></a>. Peak positions with spacing and prominence as
+scipy defines them. Tests on hand-built inputs.</li>
+<li><strong>T6</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/dsp/analyse.ts"><code>src/dsp/analyse.ts</code></a> and <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/dsp/types.ts"><code>src/dsp/types.ts</code></a>. Orchestration, the RPM
+conversion behind <code>REVS_PER_PULSE</code>, octave resolution against the expected
+range, and the failure union. Tests for the octave table and both codes.</li>
+<li><strong>T7</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/analysis.fixtures.test.ts"><code>test/analysis.fixtures.test.ts</code></a>. All seven fixtures inside
+<code>toleranceRpm</code>, the two estimators within 3 %, and each rate within 1 % of
+<code>reference.json</code>. <strong>This is the gate</strong>: nothing below starts until it is
+green.</li>
+<li><strong>T8</strong> Raise <code>MIN_CLIP_S</code> to 2 in <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/audio/types.ts"><code>audio/types.ts</code></a> and make the too-short
+message derive from it rather than hardcoding &quot;at least 1 second&quot;. Update the
+phase 3 tests that assert the 1 s boundary.</li>
+<li><strong>T9</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/analysis/worker.ts"><code>src/analysis/worker.ts</code></a> and <code>client.ts</code>. Transfer the samples, return
+the result union, one client instance reused across runs.</li>
+<li><strong>T10</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/state/useAnalysis.ts"><code>src/state/useAnalysis.ts</code></a>. Run states, cancellation of an in-flight
+run, reset to idle when the clip or selection changes.</li>
+<li><strong>T11</strong> UI: range fields, Calculate button with its busy state, the result
+line, wired to <code>getWindowClip()</code> which phase 3 left unconsumed.</li>
+<li><strong>T12</strong> Playwright pass in laptop Chrome: load a fixture, crop, Calculate,
+read the number; check it against the test suite; flip the range fields to
+force an octave correction; upload a non-engine file and see the failure
+message; confirm the number clears when the window moves.</li>
+<li><strong>T13</strong> <code>review.md</code> for the phase, carrying the B3 boundary change from
+phase 3 and whatever T12 turned up.</li>
+</ul>
+<p>Scope check before calling the phase done: <code>git log main..feat/4-analysis</code>.</p>
+
+</div></body></html>

@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design — Realtime tachometer</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">features</a> / <a href="index.html">realtime-tacho</a> / design.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <b>design</b> &middot; <a href="tasks.html">tasks</a> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-live-tacho
+feature: realtime-tacho
+branch: feat/realtime-tacho
+stage: design
+created: 2026-09-14
+prd: prd.md</h2>
+<h1>Design — Realtime tachometer</h1>
+<h2>1. Shape of the change</h2>
+<p>Four things have to exist that do not: a microphone that streams instead of
+recording, a loop that turns the stream into a number, a dial that draws the
+number, and two preferences that say how the dial behaves when the number goes
+away. Three of the four exist on <a href="https://github.com/AregShahbazian/rpm-boss/tree/poc/live-rpm"><code>poc/live-rpm</code></a> and are ported rather than
+invented; the dial is new.</p>
+<pre><code>src/
+  live/
+    ring.ts          NEW   ported verbatim from the PoC
+    stream.ts        NEW   ported, minus the PoC&#39;s instrumentation hooks
+    mock.ts          NEW   sample 6 on a timer, wearing the same interface
+  audio/
+    native.ts        EDIT  `stream` option, `frames` event, FramesEvent type
+  state/
+    useLive.ts       NEW   ported, rewritten: no LiveStats, adds visibility stop
+    useAudioInput.ts EDIT  expose `fail(code)` so live errors reach the one error line
+  dsp/
+    types.ts         EDIT  + MAX_RPM, REDLINE_RPM
+    autocorr.ts      EDIT  MIN_RATE 8 -&gt; 5; MAX_RATE derived from MAX_RPM
+  ui/
+    LiveStage.tsx    EDIT  placeholders out, the three real parts in
+    Tacho.tsx        NEW   canvas dial
+    LiveScope.tsx    NEW   canvas scope, drawn like the recorded waveform
+    liveSettings.ts  NEW   two persisted preferences, modelled on theme.ts
+    kit.tsx          EDIT  Sheet border, Button shape &#39;stop&#39;, Picker extracted
+    palette.ts       EDIT  + fg
+    LanguagePicker.tsx EDIT  uses the extracted Picker
+    SettingsButton.tsx EDIT  divider + collapsible tachometer section
+    InputScreen.tsx  EDIT  stop button, disabled source row, live wiring
+  features.ts        EDIT  + mockLive
+  i18n/
+    en.ts + 16 locales EDIT  ten new keys
+android/.../RawAudioPlugin.java  EDIT  stream mode (ported from the PoC)
+</code></pre>
+<h2>2. Data flow</h2>
+<pre><code>AudioRecord / AudioWorklet            sample 6, 3.0-13.0 s, looped
+        |                                     |
+        |  2048-frame slices, 16 kHz mono Float32
+        v                                     v
+   startLiveCapture (live/stream.ts)   startMockCapture (live/mock.ts)
+        \___________________  ______________/
+                            \/
+                          onChunk
+        v
+      Ring  (2 s, fixed, overwritten oldest-first)
+        |                               \
+        | snapshot() every 200 ms         \ latest(tail) every animation frame
+        v                                  v
+  AnalysisClient.run(clip)            LiveScope canvas
+  (the same worker Calculate uses)
+        |  Analysis
+        v
+     useLive: median of the last 5, `quiet` when a window yields nothing
+        |
+        v
+   displayRpm(reading, quiet, fallback)  -- pure, testable
+        |
+        +--&gt; Tacho canvas   (needle, smooth or step)
+        +--&gt; the reading line (&quot;1 480 rpm&quot; or &quot;---&quot;)
+</code></pre>
+<p>Nothing is ever stored: the ring is the only copy of the audio and it is
+constant-size, so a session that runs for an hour costs what one that runs for
+two seconds costs.</p>
+<h2>3. Capture</h2>
+<p><code>live/stream.ts</code> and <code>live/ring.ts</code> come across from the PoC unchanged in
+substance. What the port has to carry with it:</p>
+<ul>
+<li><code>RawAudio.start({maxS, stream: true})</code> and a <code>frames</code> listener, which means
+<code>RawAudioPlugin.java</code> gains its streaming branch: slices of 2048 frames
+emitted as events, nothing accumulated, the same <code>maxS</code> cap applied to bytes
+emitted rather than bytes held.</li>
+<li><code>LIVE_MAX_S = 600</code> stays. It is not a session cap in the product sense — PRD
+requirement 11 says live mode runs until stopped — it is the native side
+refusing to hold the microphone forever if the web side dies without calling
+<code>stop</code>. Reaching it stops the capture and the screen returns to rest.</li>
+<li>The browser path (<code>AudioWorklet</code>) is the development loop and is ported with
+it; <code>MIC_CONSTRAINTS</code> keeps echo cancellation, noise suppression and AGC off,
+for the same reason recording does.</li>
+</ul>
+<h2>3b. The mock source</h2>
+<p>The whole point is that it is not special. <code>startLiveCapture</code> and
+<code>startMockCapture</code> have the same signature and return the same <code>LiveCapture</code>,
+so the choice is made once, at the top, and nothing below the boundary is told
+which it got:</p>
+<pre><code class="language-ts">// live/mock.ts
+export const MOCK_SAMPLE = 6
+export const MOCK_FROM_S = 3
+export const MOCK_TO_S = 13
+
+export function startMockCapture(options: LiveOptions): LiveCapture
+</code></pre>
+<pre><code class="language-ts">// useLive
+export type LiveSource = &#39;mic&#39; | &#39;mock&#39;
+start(source: LiveSource)   // picks the function, and that is the entire difference
+</code></pre>
+<p>How it works: <code>fetch(sampleUrl(6))</code> once, <code>decodeToClip</code> (the same decode the
+Sample button uses, so the clip arrives at 16 kHz mono), slice 3.0–13.0 s, then
+emit 2048-frame chunks on a timer, wrapping to the start of the slice when it
+runs out. The cursor is kept modulo the slice length, so the loop is continuous
+rather than restarting a buffer.</p>
+<p>The timer paces itself against the wall clock rather than trusting its own
+interval: each tick emits as many whole chunks as <code>(now - startedAt)</code> says are
+owed, so a throttled background tab or a slow frame does not drift the
+&quot;real-time&quot; claim. 2048 frames is 128 ms at 16 kHz, matching what the native
+side delivers.</p>
+<p>Nothing is connected to an <code>AudioContext</code> destination, which is the whole of
+requirement 29: the samples exist as numbers and the only thing that consumes
+them is the ring.</p>
+<p>Failures — the fetch, the decode — go to the same <code>onError</code> as a refused
+microphone, mapped to <code>listen-failed</code>. A broken mock should look like a broken
+microphone, not like a crash.</p>
+<p><strong>Gating.</strong> <code>FEATURES.mockLive &amp;&amp; SAMPLES_ENABLED</code>. The flag is edited in
+source and defaults to <code>false</code>; the samples constant is decided by the build.
+Both must hold for the button to render, so a release build without samples
+cannot show a button that would 404 (requirement 30).</p>
+<h2>4. The loop</h2>
+<p><code>useLive</code> keeps the PoC&#39;s structure and loses its instrumentation. <code>LiveStats</code>
+was the PoC&#39;s whole point and is not shipped; what survives is the guard it
+proved necessary — a tick that fires while the previous analysis is still
+running is dropped, not queued.</p>
+<pre><code class="language-ts">export type LiveStatus = &#39;off&#39; | &#39;starting&#39; | &#39;listening&#39;
+
+export interface LiveState {
+  status: LiveStatus
+  /** The last reading that succeeded, median of the last LIVE_SMOOTH_N. */
+  reading?: number
+  /** True when the most recent window produced nothing. */
+  quiet: boolean
+}
+
+export function useLive(onError: (code: InputErrorCode) =&gt; void): {
+  live: LiveState
+  ring: React.RefObject&lt;Ring | undefined&gt;
+  start: () =&gt; void
+  stop: () =&gt; void
+}
+</code></pre>
+<p>Constants, from the PoC and unchanged: <code>LIVE_WINDOW_S = 2</code> (the <code>MIN_ANALYSIS_S</code>
+floor, so the reading is as quick as the DSP allows), <code>LIVE_INTERVAL_MS = 200</code>
+(90 % overlap between consecutive windows), <code>LIVE_SMOOTH_N = 5</code>,
+<code>LIVE_SCOPE_S = 0.25</code>.</p>
+<p>The median is not a nicety: when the estimator is wrong it is wrong by an
+octave, and a mean of 1 400 and 2 800 is a number no engine ever turned.</p>
+<p><strong>Errors.</strong> <code>useLive</code> does not render anything, so it reports through the
+callback and <code>InputScreen</code> passes <code>fail</code> from <code>useAudioInput</code>. That puts a
+refused microphone into <code>state.error</code> and onto the existing error line, above
+the existing status, with the existing Dismiss — requirement 9, with no second
+error mechanism. <code>record-failed</code> is remapped to a new <code>listen-failed</code> code on
+the way, because &quot;Recording failed&quot; is the wrong sentence for a mode that
+records nothing.</p>
+<p><strong>A consequence worth stating.</strong> <code>status</code> becomes <code>error</code>, and the stage is
+drawn only when <code>status === &#39;idle&#39;</code>. So a refused microphone hides the stage,
+error line and all, and Dismiss brings it back with the Start button on it.
+That is the behaviour asked for (&quot;stage hidden when there&#39;s a mic problem&quot;) and
+it is the reason the error is not rendered inside the stage.</p>
+<p><strong>Backgrounding.</strong> <code>useLive</code> listens for <code>visibilitychange</code> and <code>pagehide</code> and
+calls its own <code>stop</code> when the document hides — requirement 10, with no
+<code>@capacitor/app</code> dependency and no foreground service. The existing unmount
+cleanup (<code>useEffect(() =&gt; stop, [stop])</code>) stays; between the two, there is no
+path that leaves the microphone open.</p>
+<h2>5. Range constants</h2>
+<pre><code class="language-ts">// dsp/types.ts
+export const MAX_RPM = 12_000
+export const REDLINE_RPM = 9_000
+
+// dsp/autocorr.ts
+export const MIN_RATE = 5                               // 600 rpm
+export const MAX_RATE = MAX_RPM / 60 / REVS_PER_PULSE   // 100, as today
+</code></pre>
+<p><code>MAX_RATE</code> evaluates to exactly the literal it replaces, so no fixture moves.
+<code>MIN_RATE</code> does move, and what it moves is <code>lagMax = floor(sampleRate / MIN_RATE)</code>: 2 000 samples becomes 3 200. The autocorrelation itself is
+FFT-based, so the cost is the linear peak scan and not the transform; the
+guard <code>lagMax + 1 &gt;= window.length</code> still passes comfortably at one second of
+16 kHz audio.</p>
+<p><strong>The octave risk, concretely.</strong> The peak scan now reaches lags twice as long,
+which is exactly where a sub-harmonic sits. An engine at 1 200 rpm has a
+600 rpm candidate that used to fall outside the search and now does not, and
+the live path has no expected-range fields for <code>resolveOctave</code> to consult. This
+is the PRD&#39;s one open question and it is <em>not</em> resolved here. It is bounded,
+though: the fixtures are the regression net for the batch path, and the live
+path&#39;s median-of-five discards a single octave-halved reading. If it proves
+real, the cheapest answer is a live-only continuity rule — prefer the candidate
+nearest the last accepted reading — and that is a change to <code>useLive</code>, not to
+the DSP.</p>
+<h2>6. The dial</h2>
+<p><code>Tacho.tsx</code>, a canvas, sized by <code>useElementSize</code> and painted at <code>devicePixelRatio</code>,
+the same pattern <code>WaveformCanvas</code> uses.</p>
+<pre><code class="language-ts">interface Props {
+  /** The value to point at, or undefined for &quot;nothing to say&quot;. */
+  rpm?: number
+  motion: Motion
+}
+</code></pre>
+<p>Geometry, all derived, no fixed pixel sizes (requirement 23):</p>
+<pre><code class="language-ts">const START_ANGLE = 150   // degrees, clockwise from 3 o&#39;clock
+const SWEEP = 240
+const radius = Math.min(width, height) / 2 - strokeWidth
+export const rpmToAngle = (rpm: number) =&gt;
+  START_ANGLE + (clamp(rpm, 0, MAX_RPM) / MAX_RPM) * SWEEP
+</code></pre>
+<p><code>rpmToAngle</code> is exported and unit-tested; nothing else about the drawing is.</p>
+<p>What is drawn, in order: the track arc in <code>palette.muted</code>; the sub-floor
+segment of it — 0 to <code>MIN_RATE</code> converted to rpm — at reduced alpha, so the
+region the app cannot read looks unlike the region where the engine is stopped
+(Should 26); the redline arc from <code>REDLINE_RPM</code> to <code>MAX_RPM</code> in <code>palette.error</code>;
+major ticks every 1 000 with <code>0</code>–<code>12</code> labels in <code>palette.fg</code>, minor ticks every
+500 in <code>palette.muted</code>; the needle in <code>palette.accent</code>.</p>
+<p><code>palette.ts</code> gains <code>fg</code> (<code>--color-fg</code>) for the labels. Canvas text is ASCII
+digits regardless of language — the same call the review made for the result
+figure: it is a gauge reading, not a sentence.</p>
+<p><strong>Motion.</strong> A <code>requestAnimationFrame</code> loop eases the drawn value toward the
+target, <code>next = current + (target - current) * (1 - Math.exp(-dt / TAU))</code> with
+<code>TAU ≈ 120 ms</code>, and parks itself when the two are within a tenth of an rpm —
+an idle screen runs no frames. With <code>motion: &#39;step&#39;</code> there is no loop at all:
+the value is drawn on change. That is why the setting is a prop of this
+component and not a filter applied before it.</p>
+<h2>7. The scope</h2>
+<p><code>LiveScope.tsx</code> reads <code>LIVE_SCOPE_S</code> of tail out of the ring every animation
+frame and draws it. The PoC drew an oscilloscope line; this draws what the
+recorded waveform draws, because requirement 22 asks the two to match: one
+column per device pixel, <code>computePeaks</code> over the tail, a <code>fillRect</code> from min to
+max per column in <code>palette.muted</code>.</p>
+<p>It keeps the PoC&#39;s auto-scaling — an engine two metres away is quiet enough
+that a fixed scale draws a flat line — with the same <code>NOISE_FLOOR = 0.002</code>
+below which the tail is drawn flat rather than amplified into noise.</p>
+<p>Cost is one <code>computePeaks</code> over 4 000 samples plus ~300 <code>fillRect</code>s per frame.
+<code>WaveformCanvas</code> rasterises precisely to avoid that per frame, but it redraws
+thousands of columns of a static signal; here the signal is new every frame and
+there is nothing to cache. If it proves too much on the phone, the answer is to
+draw the scope at 30 fps rather than to change how it looks.</p>
+<h2>8. The reading</h2>
+<p>DOM, not canvas, so it inherits the app&#39;s type and the rtl layout:
+<code>{value === undefined ? &#39;---&#39; : Math.round(value)} {t(&#39;rpm&#39;)}</code>, styled like the
+result view&#39;s figure but sized to its own strip — <code>clamp(1.5rem, 8vmin, 3rem)</code>
+rather than the result&#39;s <code>clamp(3rem, 12vmin, 6rem)</code>, because the strip is a
+fifth of the stage and the result&#39;s figure is the whole answer on its screen.</p>
+<h2>9. The two preferences</h2>
+<p><code>liveSettings.ts</code> is <code>theme.ts</code> again, with the same tolerance for storage that
+throws and the same shape of hook:</p>
+<pre><code class="language-ts">export type Fallback = &#39;zero&#39; | &#39;hold&#39;
+export type Motion = &#39;smooth&#39; | &#39;step&#39;
+export const FALLBACKS: readonly Fallback[] = [&#39;zero&#39;, &#39;hold&#39;]
+export const MOTIONS: readonly Motion[] = [&#39;smooth&#39;, &#39;step&#39;]
+export const DEFAULT_FALLBACK: Fallback = &#39;zero&#39;
+export const DEFAULT_MOTION: Motion = &#39;smooth&#39;
+export function useFallback(): [Fallback, (v: Fallback) =&gt; void]
+export function useMotion(): [Motion, (v: Motion) =&gt; void]
+</code></pre>
+<p>Keys <code>rpm-boss.live.fallback</code> and <code>rpm-boss.live.motion</code>, beside
+<code>rpm-boss.theme</code>.</p>
+<p>Where <code>fallback</code> is applied — one pure function, which is the part worth
+testing:</p>
+<pre><code class="language-ts">export function displayRpm(live: LiveState, fallback: Fallback): number | undefined {
+  if (live.status !== &#39;listening&#39;) return undefined
+  if (!live.quiet) return live.reading
+  return fallback === &#39;hold&#39; ? live.reading : undefined
+}
+</code></pre>
+<p><code>undefined</code> means needle at 0 and <code>---</code> on the line, which is also the resting
+state, so one rendering path covers both.</p>
+<h2>10. The settings modal</h2>
+<ul>
+<li><code>Sheet</code> in <code>kit.tsx</code>: <code>border-0</code> becomes <code>border border-solid border-btn</code>.
+Both halves are needed — Preflight is not imported, so a width with no style
+draws nothing, and a style with no width draws <code>medium</code>.</li>
+<li>A <code>&lt;hr&gt;</code> after the theme fieldset, styled <code>border-0 border-t border-solid border-btn</code> for the same reason.</li>
+<li>The new section is a native <code>&lt;details&gt;</code> with a <code>&lt;summary&gt;</code>, closed by
+default. No state, no JS, keyboard and screen reader behaviour for free —
+the same argument that made the dialog a <code>&lt;dialog&gt;</code> and the language a
+<code>&lt;select&gt;</code>. The theme section is untouched (PRD: out of scope).</li>
+<li>Two rows inside, each a label and a <code>&lt;select&gt;</code> on one line.</li>
+</ul>
+<p><code>LanguagePicker</code> already owns the only styled <code>&lt;select&gt;</code> in the app, in a <code>css</code>
+block. Rather than copy that block twice, it is extracted into <code>kit.tsx</code>:</p>
+<pre><code class="language-ts">export function Picker&lt;T extends string&gt;({label, value, options, onChange, layout = &#39;column&#39;}: {
+  label: string
+  value: T
+  options: readonly { value: T; label: string }[]
+  onChange: (v: T) =&gt; void
+  layout?: &#39;column&#39; | &#39;row&#39;
+}): React.ReactElement
+</code></pre>
+<p><code>LanguagePicker</code> becomes a caller of it (<code>layout=&quot;column&quot;</code>), the two new rows
+use <code>layout=&quot;row&quot;</code>. This is the styling PRD&#39;s &quot;no style statement written
+twice&quot; rule applied to the third copy before it exists.</p>
+<h2>11. The screen</h2>
+<p><code>InputScreen</code> gains the live wiring and nothing else moves:</p>
+<pre><code class="language-ts">const {live, ring, start, stop} = useLive(fail)
+const listening = live.status !== &#39;off&#39;
+const rpm = displayRpm(live, fallback)
+</code></pre>
+<ul>
+<li><strong>Source row:</strong> <code>disabled={busy || listening}</code> on Record, Open and Sample
+(requirement 8). Settings stays enabled.</li>
+<li><strong>Stop button:</strong> the last child of the source row, rendered only while
+<code>listening</code>, with a new <code>Button</code> shape:
+<code>stop: &#39;w-24 flex-none justify-center p-0 split:w-full&#39;</code>. The row already
+wraps, so a full-width child in landscape lands on its own line under the
+others, which is requirements 5 and 6 without a second element and without a
+grid area. Portrait gets 96 px — twice the icon button, as asked.</li>
+<li><strong>Stage:</strong> <code>LiveStage</code> takes <code>{live, ring, rpm, motion, onStart}</code> and renders
+either the Start button or the scope in the lower fifth; the dial and the
+reading are always drawn, at 0 and <code>---</code> when there is nothing.</li>
+<li><strong>Mock button:</strong> when <code>FEATURES.mockLive &amp;&amp; SAMPLES_ENABLED</code>, the lower fifth
+holds two buttons of equal size rather than one — <code>onStart(&#39;mic&#39;)</code> and
+<code>onStart(&#39;mock&#39;)</code> — split down the middle of the same strip, so the resting
+screen keeps its proportions either way. Its label is the bare word &quot;Mock&quot;,
+untranslated: it is a developer&#39;s button and translating it would put a
+debug string in front of sixteen translators.</li>
+</ul>
+<p><code>LiveStage</code>&#39;s dashed placeholders and the <code>BOX</code> constant go. The 80/20 and
+80/20 splits it already carries stay exactly as they are.</p>
+<h2>12. Strings</h2>
+<p>Ten keys, English first, then all sixteen translations in the same pass:</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>English</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>listen</code></td>
+<td>Listen</td>
+</tr>
+<tr>
+<td><code>stopListening</code></td>
+<td>Stop listening</td>
+</tr>
+<tr>
+<td><code>tachoSettings</code></td>
+<td>Tachometer settings</td>
+</tr>
+<tr>
+<td><code>liveFallbackLabel</code></td>
+<td>When the reading is lost</td>
+</tr>
+<tr>
+<td><code>liveFallbackZero</code></td>
+<td>Drop to zero</td>
+</tr>
+<tr>
+<td><code>liveFallbackHold</code></td>
+<td>Hold last value</td>
+</tr>
+<tr>
+<td><code>liveMotionLabel</code></td>
+<td>Needle movement</td>
+</tr>
+<tr>
+<td><code>liveMotionSmooth</code></td>
+<td>Smooth</td>
+</tr>
+<tr>
+<td><code>liveMotionStep</code></td>
+<td>Step</td>
+</tr>
+<tr>
+<td><code>errorListenFailed</code></td>
+<td>Could not start listening. Try again.</td>
+</tr>
+</tbody></table>
+<p><code>---</code> is not a string. It is punctuation and reads the same in every language,
+like the ASCII separators phase 8 settled on.</p>
+<h2>13. Tests</h2>
+<p>New unit tests, all pure, no DOM:</p>
+<ul>
+<li><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/ring.test.ts"><code>test/ring.test.ts</code></a> — wrap-around, <code>snapshot</code> order, <code>latest</code> shorter than
+the ring, a chunk longer than the ring.</li>
+<li><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/live.test.ts"><code>test/live.test.ts</code></a> — <code>displayRpm</code> across the four combinations of <code>quiet</code>
+and <code>fallback</code>, plus <code>status !== &#39;listening&#39;</code>.</li>
+<li><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/tacho.test.ts"><code>test/tacho.test.ts</code></a> — <code>rpmToAngle</code> at 0, <code>MAX_RPM</code>, above <code>MAX_RPM</code>
+(clamped), and monotonic in between.</li>
+<li><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/liveSettings.test.ts"><code>test/liveSettings.test.ts</code></a> — modelled on <code>theme.test.ts</code>: defaults, a
+stored value, a corrupt value, and storage that throws.</li>
+<li><a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/mock.test.ts"><code>test/mock.test.ts</code></a> — the loop cursor: chunks are contiguous, the wrap joins
+the end of the slice to its start with no gap and no repeat, and the total
+emitted per second of wall time is one second of audio.</li>
+</ul>
+<p>Existing tests: <code>autocorr.test.ts</code> already reads <code>MAX_RATE</code> as a symbol rather
+than as 100, so the derivation lands without touching it. Nothing anywhere
+asserts 960 rpm or <code>MIN_RATE === 8</code>, so the floor moves without a test edit —
+which is itself worth a line in the review, because it means the floor was
+never covered.</p>
+<p>The i18n parity test walks the message files and will fail until all sixteen
+locales carry the ten new keys, which is the intended gate.</p>
+<h2>13b. Performance analysis at review</h2>
+<p>The review stage measures this feature rather than eyeballing it, because the
+whole design rests on an assumption — that a phone can run the batch analysis
+five times a second — that the PoC tested on one device and nothing has tested
+since.</p>
+<p><strong>The instrument already exists.</strong> <code>LiveStats</code> is dropped from <code>useLive</code> in §4
+as PoC scaffolding; it comes back for the review, behind the same debug flag as
+the mock, as a small readout under the scope. The numbers are the PoC&#39;s,
+because they are the right four:</p>
+<table>
+<thead>
+<tr>
+<th>number</th>
+<th>what it answers</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>avgMs</code>, <code>maxMs</code></td>
+<td>how long one analysis takes, typical and worst</td>
+</tr>
+<tr>
+<td><code>skipped</code></td>
+<td>ticks that fired while the previous analysis still ran</td>
+</tr>
+<tr>
+<td><code>captureRatio</code></td>
+<td>seconds of audio received per second of wall time</td>
+</tr>
+<tr>
+<td>scope fps</td>
+<td>whether the 60 fps redraw of §7 is actually 60</td>
+</tr>
+</tbody></table>
+<p><code>skipped</code> is the headline. Zero over a two-minute run means the device keeps up
+at <code>LIVE_WINDOW_S = 2</code> and <code>LIVE_INTERVAL_MS = 200</code>; a rising count means it
+does not, and by how much.</p>
+<p><strong>Measured on both</strong>, because they are different machines: the laptop browser
+(the development loop, and the optimistic case) and the phone in a release APK,
+which is the number that decides anything. The mock source makes the two
+comparable — the same ten seconds of audio, looped, on both.</p>
+<p><strong>If there is room to spare</strong>, accuracy is what to spend it on, in this order:</p>
+<ol>
+<li><strong>A longer window.</strong> <code>LIVE_WINDOW_S</code> is at the <code>MIN_ANALYSIS_S</code> floor of 2 s
+precisely because it was the cheapest thing that works. Three or four
+seconds averages a blip of throttle away and makes the octave decision
+safer, at the cost of reacting slower — which is the trade the backlog
+already wants to hand the user as a slider.</li>
+<li><strong>A wider smoothing median.</strong> <code>LIVE_SMOOTH_N = 5</code> at 200 ms is a second of
+history. More of it costs nothing per analysis, only lag.</li>
+<li><strong>An octave continuity rule</strong> — §5&#39;s answer to the open question. It is
+arithmetic against the last reading, so it is nearly free; it is listed here
+because it is worth doing only if the rest fits.</li>
+</ol>
+<p><strong>If it is the bottleneck</strong>, in this order, cheapest sacrifice first:</p>
+<ol>
+<li><strong>The scope to 30 fps</strong> (§7). Costs nothing anyone can see, and it is the
+only part of the frame budget that is not the analysis.</li>
+<li><strong>A longer <code>LIVE_INTERVAL_MS</code>.</strong> 300 ms still overlaps windows by 85 % and
+removes a third of the work. The needle&#39;s easing (<code>TAU</code>) hides it.</li>
+<li><strong>A shorter window.</strong> Below <code>MIN_ANALYSIS_S</code> the analysis refuses outright,
+so this is a floor, not a dial — 2 s is already it.</li>
+<li><strong>A cheaper envelope.</strong> <code>envelope()</code> runs <code>filtfilt</code> three times over the
+window; a live-only path could drop to a single forward pass and accept the
+phase shift, which the autocorrelation does not care about. This is the
+first change that makes the live answer differ from the batch answer, and it
+is not made without saying so in <code>review.md</code>.</li>
+<li><strong>Decimate before the autocorrelation.</strong> The envelope is smoothed at 150 Hz
+and then correlated at 16 kHz; at the rates being searched, 4 kHz carries
+every lag of interest and quarters the transform. This is the largest win
+available and the one most likely to move a fixture, so it is a phase of its
+own if it is needed at all, not a fix folded into this one.</li>
+</ol>
+<p>Whichever way it goes, the numbers and the decision go into <code>review.md</code> as
+evidence, and any change that makes the live estimate differ from the batch one
+is called out there explicitly rather than left in a constant.</p>
+<h2>14. Order of work</h2>
+<p>Bottom-up, so nothing is written against a thing that does not exist yet:
+constants and the DSP floor; the ring and the stream; the plugin; <code>useLive</code>;
+the dial; the scope; the settings and their pickers; the screen wiring; the
+strings. Tasks doc next.</p>
+<h2>15. Open questions for implementation</h2>
+<ol>
+<li><strong>The octave risk of §5</strong> — measured, not argued. If a real engine at
+1 200–1 500 rpm reads half on the phone, the continuity rule goes in.</li>
+<li><strong>Scope cost</strong> — if 60 fps of <code>computePeaks</code> plus 300 <code>fillRect</code>s is too
+much, drop the scope to 30 fps before changing its look.</li>
+<li><strong><code>LIVE_INTERVAL_MS</code> against <code>TAU</code></strong> — 200 ms between readings and a 120 ms
+easing constant should read as continuous. If the needle looks stepped
+anyway, <code>TAU</code> is the knob, not the interval.</li>
+<li><strong>Whether the mock should be able to sweep</strong> — a fixed 1 603 rpm loop proves
+the path but never moves the needle. Resampling the loop slowly up and down
+would exercise the smoothing and the redline, and is a small addition to
+<code>mock.ts</code> if the flat reading turns out to test too little.</li>
+<li><strong>Which <code>maxS</code> the native cap gets</strong> — 600 s is the PoC&#39;s. A session that
+dies at ten minutes with no explanation is worse than one that does not, so
+the review should check what the screen does when it fires.</li>
+</ol>
+
+</div></body></html>

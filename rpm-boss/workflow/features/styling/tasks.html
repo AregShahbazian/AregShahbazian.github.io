@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasks — Styling the app by hand</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">features</a> / <a href="index.html">styling</a> / tasks.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <b>tasks</b> &middot; <a href="review.html">review</a></nav>
+<hr>
+<h2>id: rb-styling
+feature: styling
+branch: feat/styling
+status: draft
+created: 2026-09-13</h2>
+<h1>Tasks — Styling the app by hand</h1>
+<p>Follows <code>design.md</code>. Commit subjects carry <code>[rb-styling]</code>.</p>
+<p><strong>Every task ends with the app building, installable and unchanged on screen.</strong>
+A half-converted app is a legitimate intermediate state here — a fully working
+one is not optional. So each task ends green on <code>npm run build</code>, <code>npm test</code> and
+<code>npm run lint</code>, and the visual check below.</p>
+<p><strong>The visual check</strong>, referred to as <em>the diff</em> from here on: <code>npm run dev</code>, and
+compare against <code>~/git/rpm-boss/store/screenshot1..7.png</code> at 360×640, 390×844
+and 844×390, in both themes. Any difference is a defect, not an improvement.</p>
+<hr>
+<h2>Toolchain</h2>
+<ul>
+<li><p><strong>T1</strong> <code>package.json</code>: add <code>tailwindcss</code>, <code>@tailwindcss/vite</code>,
+<code>@emotion/react</code>, <code>clsx</code>. No Babel packages — the design says why.
+<em>Verify:</em> <code>npm ls</code> resolves clean, no peer warnings about <code>@babel/core</code>.</p>
+</li>
+<li><p><strong>T2</strong> <code>vite.config.ts</code>: add the <code>tailwind()</code> plugin, and
+<code>react({ jsxImportSource: &#39;@emotion/react&#39; })</code>. Leave the <code>samples</code> plugin,
+<code>base</code>, <code>define</code> and the <code>test</code> block alone.
+<code>tsconfig.app.json</code>: <code>&quot;jsxImportSource&quot;: &quot;@emotion/react&quot;</code>.
+<em>Verify:</em> <code>npm run build</code> and <code>npm test</code> both pass with no source change yet.
+The tests are node-environment DSP tests and must be untouched by this.</p>
+</li>
+<li><p><strong>T3</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/palette.css"><code>src/palette.css</code></a>, new: the <code>@theme</code> block with <code>--color-fg</code>,
+<code>--color-bg</code>, <code>--color-muted</code>, <code>--color-accent</code>, <code>--color-error</code>,
+<code>--color-btn</code>; then <code>--dim</code>, <code>--gap</code>, <code>--col</code> as plain properties; then the
+two light-theme blocks. Move the existing comments with the values they
+explain — the dark-first note, why <code>--error</code> and <code>--dim</code> are not inversions,
+why <code>--col</code> is clamped the way it is.
+<em>Verify:</em> nothing yet imports it; <code>npm run build</code> still passes.</p>
+</li>
+<li><p><strong>T4</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/index.css"><code>src/index.css</code></a>: import the three Tailwind layers (no preflight — see
+the design), import <code>./palette.css</code>, add <code>@custom-variant split</code>. Delete the
+<code>:root</code> token block that moved to the palette; keep <code>:root</code>&#39;s <code>color-scheme</code>
+and <code>font-family</code>, and <code>body</code>. Every component rule stays for now.
+<em>Verify:</em> the diff. This is the task most likely to shift something, because
+the layers change cascade order. Nothing should move.</p>
+</li>
+<li><p><strong>T5</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/palette.ts"><code>src/ui/palette.ts</code></a>: read <code>--color-muted</code>, <code>--color-bg</code>,
+<code>--color-accent</code>; <code>--dim</code> keeps its name. Fallbacks unchanged.
+<em>Verify:</em> load a clip, check the waveform still draws in both themes and
+after a theme switch with no reload. This is requirement 7 and nothing else
+catches it.</p>
+</li>
+</ul>
+<hr>
+<h2>The kit</h2>
+<ul>
+<li><p><strong>T6</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/kit.tsx"><code>src/ui/kit.tsx</code></a>, new: <code>Button</code> and <code>LinkButton</code>.
+<code>Button</code> owns <code>.btn</code> and takes <code>icon</code> (2 callers: <code>SampleButton</code>,
+<code>Settings</code>) and <code>tone</code> (1 caller: <code>RecordButton</code>). No <code>className</code>
+passthrough — the design forbids it, and a caller that wants one is asking
+for a prop instead.
+Keep the comment explaining the 48 px hit target.
+<em>Verify:</em> not wired up yet; <code>npm run build</code>.</p>
+</li>
+<li><p><strong>T7</strong> Convert the six <code>.btn</code> callers to <code>&lt;Button&gt;</code>: <code>UploadButton</code>,
+<code>RecordButton</code> (<code>tone=&quot;record&quot;</code>), <code>SampleButton</code> (<code>icon</code>, plus the list
+buttons), <code>Settings</code> (<code>icon</code>), <code>Player</code>, <code>InputScreen</code>&#39;s Calculate.
+Delete <code>.btn</code>, <code>.btn-rec</code>, <code>.btn-icon</code> from <code>index.css</code>.
+<em>Verify:</em> the diff, with attention to the source row at 360 px — the button
+row wraps on a narrow device (seen on the AGM G3) and must wrap the same way.</p>
+</li>
+<li><p><strong>T8</strong> Convert the three <code>.link</code> callers to <code>&lt;LinkButton&gt;</code>: <code>ExportButton</code>,
+<code>MicCheck</code>, <code>StatusLine</code>. Delete <code>.link</code>.
+<em>Verify:</em> the diff.</p>
+</li>
+</ul>
+<hr>
+<h2>Leaf components</h2>
+<p>One commit each. Each deletes its rules from <code>index.css</code> as it goes, so the
+stylesheet shrinks visibly and nothing is left orphaned at the end.</p>
+<ul>
+<li><strong>T9</strong> <code>StatusLine.tsx</code> — <code>.status</code>, <code>.muted</code>, <code>.error</code>. Utilities.</li>
+<li><strong>T10</strong> <code>ResultView.tsx</code> — <code>.result</code>, <code>.result:empty</code>, <code>.rpm</code>, <code>.rpm-value</code>,
+<code>.rpm-unit</code>, <code>.readout</code>. The <code>:empty</code> rule is a <code>css</code>-prop case. Keep the
+comment on the <code>clamp()</code> that sizes the number.</li>
+<li><strong>T11</strong> <code>RangeFields.tsx</code> — <code>.range</code> and its four descendant rules
+(<code>summary</code>, <code>[open] summary</code>, <code>label</code>, <code>input</code>). The <code>&lt;details&gt;</code> selectors are
+a <code>css</code>-prop case.</li>
+<li><strong>T12</strong> <code>MicCheck.tsx</code> — <code>.miccheck pre</code>, <code>.mono</code>.</li>
+<li><strong>T13</strong> <code>Player.tsx</code> — <code>.player</code>, <code>.player .btn</code>, <code>.player .mono</code>. The two
+descendant rules disappear: the children are <code>&lt;Button&gt;</code> and a <code>&lt;span&gt;</code>
+styled where they are written.</li>
+<li><strong>T14</strong> <code>SampleButton.tsx</code> and <code>Settings.tsx</code> — <code>.sheet</code>, <code>.sheet::backdrop</code>,
+<code>.sheet h2</code>, <code>.sheet-body</code>, <code>.themes</code>, <code>.themes legend</code>, <code>.themes label</code>,
+<code>.samples</code>, <code>.samples .btn</code>. <code>::backdrop</code> has no utility and stays CSS.
+<code>LanguagePicker.tsx</code> — <code>.field</code>, <code>.field select</code>.</li>
+<li><strong>T15</strong> <code>WaveformBlock.tsx</code> and <code>WaveformCanvas.tsx</code> — <code>.wave</code>,
+<code>.wave canvas</code>, <code>.wave-block</code>, <code>.wave-overview</code>, <code>.wave-detail</code> and the two
+size media queries. The descendant <code>canvas</code> rule becomes a nested selector in
+the wrapper&#39;s <code>css</code> block. Keep the comments explaining why the canvas is out
+of flow and why the detail view is inset.
+<em>Verify each of T9–T15:</em> the diff, plus the interaction the component owns —
+crop drag and playback for T15, the dialog opening and closing for T14.</li>
+</ul>
+<hr>
+<h2>Layout, last</h2>
+<ul>
+<li><p><strong>T16</strong> <code>InputScreen.tsx</code> — <code>.screen</code>, <code>.screen-empty</code>, the seven <code>.area-*</code>
+rules, <code>.row</code>, and the two layout media queries, into the <code>css</code> prop on
+<code>&lt;main&gt;</code>. Named grid areas and a two-condition media query are what the <code>css</code>
+prop is for; do not try to express them as utilities.
+Keep the comment explaining why the split needs width <em>and</em> landscape — it
+records a bug that a portrait tablet found.
+<em>Verify:</em> the diff at all three sizes plus 820×1180 portrait, which is the
+case that comment is about. Both themes.</p>
+</li>
+<li><p><strong>T17</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/index.css"><code>src/index.css</code></a> reduced to: the Tailwind layers, the palette import,
+<code>@custom-variant split</code>, <code>:root</code>&#39;s <code>color-scheme</code> and <code>font-family</code>, <code>body</code>.
+Nothing else. Delete <code>.screen-empty</code> and anything else left over.
+<em>Verify:</em> <code>grep -c &#39;{&#39; src/index.css</code> is in single figures. No component
+references a class defined anywhere but its own file.</p>
+</li>
+</ul>
+<hr>
+<h2>Closing</h2>
+<ul>
+<li><p><strong>T18</strong> Requirement 8, right-to-left: build Urdu and check the three sizes.
+Every <code>inline-size</code> / <code>block-size</code> that became <code>w-*</code> / <code>h-*</code> is a suspect;
+<code>px-*</code> and <code>mx-*</code> are safe because Tailwind emits the logical properties.
+Fix by dropping to <code>[inline-size:…]</code> or the <code>css</code> prop.</p>
+</li>
+<li><p><strong>T19</strong> Requirement 11, no statement written twice: read the final diff for
+repeated multi-declaration utility runs. A single shared utility at several
+sites is fine; a repeated <em>group</em> means a missing component.</p>
+</li>
+<li><p><strong>T20</strong> Requirement 9: <code>npm run build</code> and compare the gzipped bundle against
+85.05 kB. The spike measured +7.1 kB; anything much past that wants
+explaining before it is accepted.</p>
+</li>
+<li><p><strong>T21</strong> <code>./scripts/apk.sh</code> and install on both phones — the Zenfone and the
+AGM G3. The AGM is the narrow one where the button row wraps. Confirms the
+browser floor the design discusses is actually met by the WebViews in play.</p>
+</li>
+<li><p><strong>T22</strong> Playwright pass in laptop Chrome: upload, crop drag, play, Calculate,
+the settings dialog, the sample list, both themes, Urdu, at 360×640, 390×844,
+844×390 and 820×1180.</p>
+</li>
+<li><p><strong>T23</strong> <code>README.md</code> where it describes the stack or the stylesheet. There is
+no <code>CLAUDE.md</code> in this repo. <code>store/README.md</code> stays valid, because nothing
+changed on screen.</p>
+</li>
+</ul>
+
+</div></body></html>

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review — Styling the app by hand</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#5a5a5a; --line:#d9d9d9; --accent:#1f4e79; }
+  body { margin:0; background:#f2f2f2; color:var(--ink);
+         font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.5; }
+  .page { max-width:860px; margin:24px auto; padding:36px 44px; background:#fff;
+          box-shadow:0 1px 6px rgba(0,0,0,.12); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  nav { font-size:.9rem; color:var(--muted); margin-bottom:18px; }
+  h1,h2,h3 { line-height:1.2; } h1 { margin-top:0; }
+  code { background:#f4f4f4; padding:1px 4px; border-radius:3px; font-size:.92em; }
+  pre { background:#f7f7f7; border:1px solid var(--line); padding:12px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; } th,td { border:1px solid var(--line); padding:4px 10px; }
+  img { max-width:100%; }
+  blockquote { border-left:3px solid var(--line); margin-left:0; padding-left:14px; color:var(--muted); }
+  @media (max-width:640px) { .page { margin:0; padding:20px 16px; box-shadow:none; } }
+</style>
+</head>
+<body><div class="page"><nav><a href="../../index.html">workflow docs</a> / <a href="../index.html">features</a> / <a href="index.html">styling</a> / review.md &nbsp;|&nbsp; stages: <a href="prd.html">prd</a> &middot; <a href="design.html">design</a> &middot; <a href="tasks.html">tasks</a> &middot; <b>review</b></nav>
+<hr>
+<h2>id: rb-styling
+feature: styling
+branch: feat/styling
+status: closed
+created: 2026-09-13
+closed: 2026-09-13</h2>
+<h1>Review — Styling the app by hand</h1>
+<p>A pure refactor: the app must not have changed in appearance or behaviour. So
+the review is a comparison, not an inspection. Two dev servers were run side by
+side — <code>19b4189</code> from a worktree on 5174, <code>feat/styling</code> on 5173 — and driven
+by the same scripts against both.</p>
+<p>The harness is in <code>evidence/</code>: <code>shoot.mjs</code> captures, <code>diff.mjs</code> compares
+pixel for pixel, <code>e2e.mjs</code> drives the app and prints what it did, <code>rtl.mjs</code>
+does the Urdu pass, <code>probe.mjs</code> dumps element geometry. All take <code>URL=</code>.</p>
+<h2>Screens</h2>
+<p>Four, as asked, all in laptop Chrome:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>mobile portrait</td>
+<td>390 × 844</td>
+</tr>
+<tr>
+<td>mobile landscape</td>
+<td>844 × 390</td>
+</tr>
+<tr>
+<td>tablet portrait</td>
+<td>820 × 1180</td>
+</tr>
+<tr>
+<td>tablet landscape</td>
+<td>1180 × 820</td>
+</tr>
+</tbody></table>
+<h2>1. Appearance — 40 frames, pixel for pixel</h2>
+<p>Five states per screen in dark (empty, samples sheet, settings sheet, loaded,
+range open, result) and three in light, captured before any change and again
+with the whole app converted.</p>
+<pre><code>$ node diff.mjs before after
+IDENTICAL — all frames match
+</code></pre>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>R1</strong> Every one of the 40 frames is byte-for-byte identical. Not &quot;close&quot;
+— <code>pixelmatch</code> reports zero differing pixels at threshold 0.1.</li>
+<li><input checked="" disabled="" type="checkbox"> maintainer</li>
+</ul>
+<p>Two drifts were found this way and fixed before the commits landed, which is
+the whole reason for doing it as a diff rather than by eye:</p>
+<ul>
+<li>The button&#39;s label sat a fraction of a pixel off, because Tailwind&#39;s
+<code>text-base</code> also sets a 1.5 line-height and the rule it replaced set only the
+size. 116 pixels on one frame; invisible, and it would have been wrong
+everywhere a button label wrapped. Now <code>text-base/[normal]</code>.</li>
+<li>The landscape layout moved 4 px. That one turned out not to be my mistake —
+see finding F1.</li>
+</ul>
+<h2>2. Behaviour — the same script against both servers</h2>
+<p><code>e2e.mjs</code> loads a sample through the sheet, drags a crop handle, plays, stops,
+calculates, opens the range panel, switches the theme, and closes a sheet by
+pressing the backdrop — on each of the four screens, collecting console errors
+throughout. Full output in <code>evidence/e2e-report.txt</code>.</p>
+<pre><code>$ URL=http://localhost:5174/ node e2e.mjs &gt; before.txt   # 19b4189
+$ node e2e.mjs &gt; after.txt                                # feat/styling
+$ diff before.txt after.txt
+E2E REPORTS IDENTICAL
+</code></pre>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>R2</strong> Sample loads through the sheet; status reads
+<code>Loaded: sample-1.m4a · 11.2 seconds</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R3</strong> Crop drag works and the readout follows: <code>0:02.8 - 0:10.0 · 7.2 s</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R4</strong> Playback starts and the button becomes Stop.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R5</strong> Calculate on the cropped window gives <code>1614 rpm</code>,
+<code>96 combustions marked</code> — the same numbers on both builds, so the DSP
+path is untouched.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R6</strong> The expected-range panel opens and the choice is written to
+<code>localStorage</code> as <code>true</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R7</strong> Theme switch: <code>data-theme</code> becomes <code>light</code>, <code>--color-accent</code>
+resolves to <code>#1f4e79</code>, the body ground to <code>rgb(250, 250, 250)</code>. This is
+also the check that requirement 7 survived — that value is read off the
+root element exactly as the canvas reads it.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R8</strong> A press on the backdrop closes the sheet, and a press inside it
+does not.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R9</strong> No console errors and no page errors, on any screen, on either
+build.</li>
+<li><input checked="" disabled="" type="checkbox"> maintainer</li>
+</ul>
+<h2>3. Right to left</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>R10</strong> The Urdu build, captured on all four screens before and after:
+<code>IDENTICAL — all frames match</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R11</strong> Horizontal overflow is 0 px on all four screens. This is the
+check the design called for, because Tailwind&#39;s <code>w-*</code> and <code>h-*</code> are
+physical where the old stylesheet used <code>inline-size</code> and <code>block-size</code>.
+<code>px-*</code> and <code>mx-*</code> are logical and were safe; the sizes that changed are
+all on elements where the writing mode never differs.</li>
+<li><input checked="" disabled="" type="checkbox"> maintainer</li>
+</ul>
+<h2>4. The numbers</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> <strong>R12</strong> <code>npm run build</code>, <code>npm run lint</code>, <code>npm test</code> all green.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R13</strong> Bundle: 85.05 kB gzipped → <strong>92.71 kB</strong>, so <strong>+7.66 kB</strong> against
+the 15 kB budget in requirement 9. The spike predicted +7.1 kB.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R14</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/index.css"><code>src/index.css</code></a>: <strong>69 rules → 3</strong>. What is left is the Tailwind
+layers, the palette import, two named breakpoints, <code>:root</code>&#39;s
+<code>color-scheme</code> and font, <code>box-sizing</code> and <code>body</code>.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R15</strong> No component references a class defined anywhere else: grepping
+the source for any of the old class names returns nothing, and no colour
+token survives under its old name.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R16</strong> The release APK builds and is signed with the <code>rpmboss</code> key.</li>
+<li><input checked="" disabled="" type="checkbox"> <strong>R17</strong> Installed and used on a phone, by the maintainer.</li>
+<li><input checked="" disabled="" type="checkbox"> maintainer</li>
+</ul>
+<h2>Findings</h2>
+<p>All four actionable findings were applied on 2026-09-13, after the maintainer
+read them, as <code>3064987</code>. F5 and F6 were informational and needed no change.
+What each one says below is what was found; what was done about it follows.</p>
+<h3>F1 — Two rules in the old stylesheet never applied</h3>
+<p><strong>What.</strong> The split-layout block set <code>.range { padding-block: 6px }</code> and
+<code>.result { gap: 8px }</code>. Further down the same file, plain <code>.range { padding: 8px 12px }</code> and <code>.result { gap: 12px }</code> sat at equal specificity and later in source
+order, so they won. Both overrides were dead.</p>
+<p><strong>How it surfaced.</strong> Written as <code>split:</code> variants they applied for the first
+time, and the landscape frames moved by 4 px. <code>probe.mjs</code> located it exactly:
+the range box lost 4 px of height and its summary moved 2 px within it, which
+is 8 px of padding becoming 6.</p>
+<p><strong>What I did.</strong> Reproduced what the app <em>rendered</em>, not what the stylesheet
+appeared to ask for, and left a comment at each site saying so. The refactor
+must not change the screen, and this would have.</p>
+<p><strong>Decided: applied.</strong> <code>split:py-1.5</code> and <code>split:gap-2</code> are back, deliberately
+this time. The landscape range panel and result gap tighten by 4 px, and that
+is the only intended visual change in the branch — twelve landscape frames
+differ from the benchmark and every other frame is identical.</p>
+<h3>F2 — The two breakpoints are each written twice</h3>
+<p><code>@custom-variant split</code> and <code>@custom-variant tall</code> live in <code>index.css</code>, and
+<code>InputScreen</code>&#39;s <code>SCREEN</code> block writes the same two media queries out in full,
+because a <code>css</code> block cannot use a Tailwind variant. Four places, two values.</p>
+<p><strong>Applied.</strong> <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/src/ui/breakpoints.ts"><code>src/ui/breakpoints.ts</code></a> holds the two queries and <code>InputScreen</code>
+interpolates them. The <code>@custom-variant</code> declarations still have to be written
+in CSS, which nothing in TypeScript can read, so <a href="https://github.com/AregShahbazian/rpm-boss/blob/main/test/breakpoints.test.ts"><code>test/breakpoints.test.ts</code></a>
+reads <code>index.css</code> and fails if the two ever drift apart.</p>
+<h3>F3 — The one-line status paragraph is shaped in two components</h3>
+<p><code>m-0 min-h-[1.5em]</code> plus a colour appears as <code>LINE</code> in <code>StatusLine</code> and twice
+inline in <code>ResultView</code>. Three declarations, two files.</p>
+<p><strong>Applied.</strong> <code>StatusText</code> sits in <code>kit.tsx</code> beside <code>Button</code> and <code>Sheet</code>, with a
+<code>tone</code> of default, muted or error. The <code>split:truncate</code> rule and the note
+saying why errors are exempt from it moved into it.</p>
+<h3>F4 — <code>Button</code> and <code>LinkButton</code> accept a <code>className</code> and silently ignore it</h3>
+<p>Their props extend <code>ButtonHTMLAttributes</code>, which includes <code>className</code>, and the
+spread sits <em>before</em> the computed <code>className</code>, so a caller that passes one gets
+no error and no effect. The design&#39;s rule — that a caller wanting an override
+should get a prop instead — is currently enforced by convention.</p>
+<p><strong>Applied.</strong> Both button types, and <code>StatusText</code>, omit <code>className</code> from their
+props. The design&#39;s rule is now the type&#39;s rule.</p>
+<h3>F5 — The test count moved from 324 to 325, benignly</h3>
+<p>There is a guard test that walks <code>src/ui/*.tsx</code> asserting no bare user-facing
+strings. Adding <code>kit.tsx</code> added a case, and it passes. Noted only because the
+PRD and tasks quoted 327, which came from a measurement taken on the live POC
+branch and was wrong for <code>main</code>; both docs now say 324.</p>
+<h3>F6 — Pre-existing audit advisories, untouched</h3>
+<p><code>npm audit</code> reports three moderate advisories reaching <code>uuid</code> through
+<code>@capacitor/cli</code> → <code>xcode</code>. They predate this branch and the suggested fix is a
+breaking Capacitor CLI downgrade. Not this feature&#39;s business; flagged so it is
+not mistaken for something this work introduced.</p>
+<h2>Closing</h2>
+<p>Checked again after the findings were applied, in headed Chrome this time
+rather than headless — the two render text differently, so the benchmark was
+re-captured headed rather than compared across modes. Every frame identical
+except the twelve landscape ones F1 deliberately changes, and the e2e report
+diffs clean. 328 tests pass.</p>
+<p>The maintainer has ticked every check, including the phone.</p>
+<p>Closed 2026-09-13. Merged to <code>main</code> in stage 7.</p>
+
+</div></body></html>
