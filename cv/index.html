@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Areg Shahbazian - Senior Software Engineer</title>
+  <meta name="description"
+        content="Areg Shahbazian, senior software engineer. React / Electron, BSc Artificial Intelligence. Eight years building a multi-exchange crypto trading platform.">
+  <style>
+      :root {
+          --ink: #1a1a1a;
+          --muted: #5a5a5a;
+          --line: #d9d9d9;
+          --accent: #1f4e79;
+          --bg: #ffffff;
+      }
+
+      * {
+          box-sizing: border-box;
+      }
+
+      html {
+          font-size: 15px;
+      }
+
+      body {
+          margin: 0;
+          background: #f2f2f2;
+          color: var(--ink);
+          font-family: "Source Sans 3", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          line-height: 1.45;
+      }
+
+      .page {
+          max-width: 820px;
+          margin: 24px auto;
+          padding: 44px 52px;
+          background: var(--bg);
+          box-shadow: 0 1px 6px rgba(0, 0, 0, .12);
+      }
+
+      a {
+          color: var(--accent);
+          text-decoration: none;
+      }
+
+      a:hover {
+          text-decoration: underline;
+      }
+
+      header {
+          display: flex;
+          gap: 24px;
+          align-items: flex-start;
+          margin-bottom: 18px;
+      }
+
+      header .photo {
+          width: 96px;
+          height: 96px;
+          border-radius: 50%;
+          object-fit: cover;
+          flex: none;
+      }
+
+      header h1 {
+          margin: 0;
+          font-size: 2rem;
+          line-height: 1.1;
+          letter-spacing: -.01em;
+      }
+
+      header .title {
+          margin: 4px 0 8px;
+          font-size: 1.1rem;
+          color: var(--accent);
+          font-weight: 600;
+      }
+
+      header .meta {
+          margin: 0;
+          color: var(--muted);
+          font-size: .92rem;
+      }
+
+      header .meta span + span::before {
+          content: " - ";
+          color: var(--line);
+      }
+
+      .summary {
+          margin: 0 0 20px;
+          font-size: 1.02rem;
+      }
+
+      h2 {
+          margin: 22px 0 8px;
+          padding-bottom: 4px;
+          border-bottom: 1px solid var(--line);
+          font-size: .8rem;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+          color: var(--muted);
+          font-weight: 700;
+      }
+
+      .job {
+          margin: 0 0 14px;
+      }
+
+      .job .head {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+      }
+
+      .job .role {
+          font-weight: 700;
+      }
+
+      .job .org {
+          color: var(--muted);
+      }
+
+      .job .when {
+          color: var(--muted);
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+      }
+
+      .job p {
+          margin: 4px 0 6px;
+      }
+
+      .job ul {
+          margin: 0;
+          padding-left: 18px;
+      }
+
+      .job li {
+          margin: 2px 0;
+      }
+
+      .job li b {
+          font-weight: 600;
+      }
+
+      .stack {
+          margin-top: 6px;
+          color: var(--muted);
+          font-size: .92rem;
+      }
+
+      .cols {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px 32px;
+      }
+
+      .cols p {
+          margin: 0 0 6px;
+      }
+
+      .cols .k {
+          color: var(--muted);
+          font-size: .85rem;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+      }
+
+      .edu p {
+          margin: 2px 0;
+      }
+
+      @media (max-width: 640px) {
+          html {
+              font-size: 14.5px;
+          }
+
+          .page {
+              margin: 0;
+              padding: 24px 18px;
+              box-shadow: none;
+          }
+
+          header {
+              gap: 16px;
+          }
+
+          header .photo {
+              width: 72px;
+              height: 72px;
+          }
+
+          .cols {
+              grid-template-columns: 1fr;
+          }
+
+          .job .when {
+              white-space: normal;
+          }
+      }
+
+      @page {
+          size: A4;
+          margin: 14mm 15mm;
+      }
+
+      @media print {
+          html {
+              font-size: 10.6pt;
+          }
+
+          body {
+              background: #fff;
+          }
+
+          .page {
+              max-width: none;
+              margin: 0;
+              padding: 0;
+              box-shadow: none;
+          }
+
+          header .photo {
+              display: none;
+          }
+
+          a {
+              color: var(--ink);
+          }
+
+          a[href^="http"]::after {
+              content: "";
+          }
+
+          h2 {
+              margin-top: 12pt;
+              break-after: avoid;
+          }
+
+          .job {
+              break-inside: avoid;
+          }
+
+          .summary {
+              margin-bottom: 10pt;
+          }
+      }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <img class="photo" src="photo.png" alt="">
+    <div>
+      <h1>Areg Shahbazian</h1>
+      <p class="title">Senior Software Engineer - React / Electron - BSc AI</p>
+      <p class="meta">
+        <span>Remote - CET-GMT+4 overlap</span>
+        <span>Dutch national</span>
+        <span><a href="mailto:areg.uvagm@gmail.com">areg.uvagm@gmail.com</a></span>
+      </p>
+      <p class="meta">
+        <span><a href="https://areg.nl">areg.nl</a></span>
+        <span><a href="https://areg.nl/workflow/">areg.nl/workflow</a></span>
+        <span><a href="https://github.com/AregShahbazian">github.com/AregShahbazian</a></span>
+        <span><a href="https://www.linkedin.com/in/areg-shahbazian/">linkedin.com/in/areg-shahbazian</a></span>
+      </p>
+    </div>
+  </header>
+
+  <p class="summary">
+    Eight years as the primary frontend engineer of a multi-exchange crypto trading platform, from the first
+    Electron/React release to today's desktop, web and mobile builds.
+    <br/>
+    Built the trading workspace, the
+    replay/backtest engine and the charting integrations.
+    <br/>
+    Since 2026 the emphasis is on architecture, specification
+    and review in a spec-first, review-gated LLM-assisted workflow, written up with a fully published
+    worked example at <a href="https://areg.nl/workflow/">areg.nl/workflow</a>.
+    <br/>
+    BSc Artificial Intelligence, University of Amsterdam.
+  </p>
+
+  <h2>Experience</h2>
+
+  <div class="job">
+    <div class="head">
+      <div><span class="role">Senior Software Engineer (Frontend)</span> <span
+          class="org">- Altrady, freelance, remote</span></div>
+      <div class="when">Sep 2018 - present</div>
+    </div>
+    <p>
+      <a href="https://www.altrady.com">Altrady</a> is trading software for active crypto traders: market scanning,
+      charting,
+      advanced order execution, bots, portfolio tracking, paper trading, backtesting and journaling in one workspace,
+      across
+      19+ exchanges. Largest single contributor to the desktop and web app since its first release.
+    </p>
+    <ul>
+      <li><b>Trading-terminal workspace.</b> Dockable multi-widget layout with per-device (desktop, tablet, mobile)
+        layouts and presets.
+        Led the migration from react-grid-layout to flexlayout-react without breaking saved user layouts.
+      </li>
+      <li><b>Replay / backtest engine.</b> Bar-by-bar replay with speed and step controls, replay trading where orders
+        fill against
+        replayed candles, saved backtests and step-back optimisation. First built on the TradingView Charting Library,
+        whose sparse
+        documentation and uneven API had to be tamed into a smooth feature, later ported to a custom charting library.
+      </li>
+      <li><b>Charting integrations.</b> TradingView datafeed and on-chart orders, alerts, DCA and grid-bot previews,
+        custom indicators
+        and drawings. In 2026, integration of a custom charting library with multi-chart, replay and sandboxed user
+        scripting,
+        coexisting with the TradingView charts during rollout.
+      </li>
+      <li><b>Design system.</b> Shared component library with Storybook and light/dark design tokens, used across the
+        whole app.
+      </li>
+      <li><b>Interactive tutorials and quizzes.</b> Chart-driven trading quizzes with an authoring editor, replay-based
+        playback,
+        grading and progress, later a guided smart-trading tutorial. Sole owner.
+      </li>
+      <li><b>Accounts, portfolio and scanning.</b> Exchange API-key onboarding, 2FA and authorized devices. Portfolio
+        and trading
+        analytics, base scanner and market explorer, order, position and alert widgets, paper trading.
+      </li>
+      <li><b>Delivery.</b> Four-language i18n, web build target, React Native webview shell for mobile, Electron 2->44
+        and
+        React 16->19 upgrade sweeps, GitHub Actions CI.
+      </li>
+      <li><b>2026: architecture and review.</b> Specifications, architecture and review of all frontend contributions,
+        including
+        LLM-assisted ones from non-engineers, using my own spec-first workflow (PRD -> design -> tasks -> implementation
+        -> review).
+      </li>
+    </ul>
+    <div class="stack">Electron, React, Redux, styled-components, Tailwind, Jest, Storybook, Webpack, Sentry, websockets
+      (Phoenix Channels). TypeScript in the charting library and exchange client. Linux/Ubuntu daily driver since 2014.
+    </div>
+  </div>
+
+  <div class="job">
+    <div class="head">
+      <div><span class="role">Frontend Engineer</span> <span class="org">- Datumize, Barcelona, freelance, remote</span>
+      </div>
+      <div class="when">Apr - Aug 2018</div>
+    </div>
+    <p>React/Redux management UI and a shared component library for a data-capture platform, plus code review for the
+      team.</p>
+  </div>
+
+  <div class="job">
+    <div class="head">
+      <div><span class="role">Software Engineer</span> <span class="org">- ING Bank via Young Colfield, Amsterdam</span>
+      </div>
+      <div class="when">Jan 2017 - Jan 2018</div>
+    </div>
+    <p>Scrum team owning the Java/Spring REST APIs for assisted banking transactions: endpoints, business logic,
+      JUnit/Mockito
+      unit tests, Robot Framework and Gatling automation, deployments across environments.</p>
+  </div>
+
+  <div class="job">
+    <div class="head">
+      <div><span class="role">Software Developer</span> <span class="org">- Ritense, Amsterdam</span></div>
+      <div class="when">2016</div>
+    </div>
+    <p>Full-stack work for a small agency: Java Spring Boot APIs (Hibernate, MySQL, Docker, Jenkins) and ColdFusion web
+      applications for clients including Elsevier, up to nine applications in one sprint.</p>
+  </div>
+
+  <div class="job">
+    <div class="head">
+      <div><span class="role">Freelance Developer</span> <span class="org">- Kisport Martial Academy</span></div>
+      <div class="when">2015 - 2016</div>
+    </div>
+    <p>First solo production system: member administration and exam-enrollment web app (PHP, MySQL, jQuery), from
+      stakeholder
+      interviews and data migration to hosting and support. In daily use for years.</p>
+  </div>
+
+  <h2>Education</h2>
+  <div class="job edu">
+    <div class="head">
+      <div><span class="role">BSc Artificial Intelligence</span> <span class="org">- University of Amsterdam</span>
+      </div>
+      <div class="when">2011 - 2015</div>
+    </div>
+    <p>Thesis: <a href="https://staff.fnwi.uva.nl/a.visser/education/bachelorAI/thesisShahbazian.pdf">Taking up the
+      RoCKIn@Work object recognition challenge with the Bag of Keypoints approach</a>
+      - computer vision and machine learning in C++ (OpenCV, PCL, ROS).</p>
+    <p>Projects: <a href="https://staff.fnwi.uva.nl/a.visser/activities/IMAV/DistractionExploration.pdf">autonomous
+      exploration with an unmanned aerial system</a> (Netherlands Aerospace Centre), and
+      <a href="http://www.areg.nl/lb/L_B_verslag.pdf">predicting bird behaviour from GPS and accelerometer data</a> with
+      machine learning.</p>
+    <p>Subjects: machine learning, computer vision, robotics, logic, speech recognition and synthesis, knowledge
+      systems.</p>
+  </div>
+
+  <div class="cols">
+    <div>
+      <p class="k">Certifications</p>
+      <p>Oracle Certified Associate, Java SE 8 (2017)<br>Professional Scrum Master I (2017)<br>EFSET English C2 (2015)
+      </p>
+    </div>
+    <div>
+      <p class="k">Languages</p>
+      <p>English, Dutch, Armenian</p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
