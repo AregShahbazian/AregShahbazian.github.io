@@ -13,6 +13,20 @@
           --line: #d9d9d9;
           --accent: #1f4e79;
           --bg: #ffffff;
+          --surround: #f2f2f2;
+          --shadow: rgba(0, 0, 0, .12);
+      }
+
+      @media (prefers-color-scheme: dark) {
+          :root {
+              --ink: #e6e6e6;
+              --muted: #a0a0a0;
+              --line: #333333;
+              --accent: #7fb3e6;
+              --bg: #1c1c1c;
+              --surround: #121212;
+              --shadow: rgba(0, 0, 0, .5);
+          }
       }
 
       * {
@@ -25,7 +39,7 @@
 
       body {
           margin: 0;
-          background: #f2f2f2;
+          background: var(--surround);
           color: var(--ink);
           font-family: "Source Sans 3", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
           line-height: 1.45;
@@ -36,7 +50,7 @@
           margin: 24px auto;
           padding: 44px 52px;
           background: var(--bg);
-          box-shadow: 0 1px 6px rgba(0, 0, 0, .12);
+          box-shadow: 0 1px 6px var(--shadow);
       }
 
       a {
@@ -208,6 +222,14 @@
       }
 
       @media print {
+          :root {
+              --ink: #1a1a1a;
+              --muted: #5a5a5a;
+              --line: #d9d9d9;
+              --accent: #1f4e79;
+              --bg: #ffffff;
+          }
+
           html {
               font-size: 10.6pt;
           }
